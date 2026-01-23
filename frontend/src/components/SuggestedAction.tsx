@@ -2,7 +2,7 @@ import type { SuggestedAction as SuggestedActionType } from '../lib/types';
 
 interface SuggestedActionProps {
   action: SuggestedActionType;
-  onLog: () => void;
+  onCheckIn: () => void;
 }
 
 function daysSince(isoDate: string | null): number | null {
@@ -13,7 +13,7 @@ function daysSince(isoDate: string | null): number | null {
   return Math.floor(diffTime / (1000 * 60 * 60 * 24));
 }
 
-export function SuggestedAction({ action, onLog }: SuggestedActionProps) {
+export function SuggestedAction({ action, onCheckIn }: SuggestedActionProps) {
   const { directive, epic, reason, stats } = action;
   const daysSinceLastCheckin = daysSince(stats.lastCheckin);
 
@@ -74,7 +74,7 @@ export function SuggestedAction({ action, onLog }: SuggestedActionProps) {
         </div>
       </div>
       <button
-        onClick={onLog}
+        onClick={onCheckIn}
         style={{
           padding: '12px 24px',
           backgroundColor: '#2d2d2d',

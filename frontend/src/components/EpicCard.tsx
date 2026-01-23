@@ -1,4 +1,4 @@
-import type { Epic, Log } from '../lib/types';
+import type { Epic, Log, Directive } from '../lib/types';
 import { computeDirectiveStats } from '../lib/computeDerivedData';
 import { PhaseBadge } from './PhaseBadge';
 import { CommitGraph } from './CommitGraph';
@@ -8,8 +8,13 @@ interface EpicCardProps {
   epic: Epic;
   logs: Log[];
   isExpanded: boolean;
-  onToggle: () => void;
-  onLogDirective: (epicId: string, directiveId: string) => void;
+  onToggleExpanded: () => void;
+  onCheckIn: (directiveId: string) => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onAddDirective?: () => void;
+  onEditDirective?: (directive: Directive) => void;
+  onDeleteDirective?: (directiveId: string) => void;
 }
 
 function daysUntil(isoDate: string | null): number | null {
@@ -24,8 +29,13 @@ export function EpicCard({
   epic,
   logs,
   isExpanded,
-  onToggle,
-  onLogDirective,
+  onToggleExpanded,
+  onCheckIn,
+  onEdit,
+  onDelete,
+  onAddDirective,
+  onEditDirective,
+  onDeleteDirective,
 }: EpicCardProps) {
   const directiveStats = epic.directives.map((d) =>
     computeDirectiveStats(d, logs)
@@ -73,7 +83,7 @@ export function EpicCard({
       }}
     >
       <div
-        onClick={onToggle}
+        onClick={onToggleExpanded}
         style={{
           padding: '28px 32px',
           cursor: 'pointer',
@@ -87,9 +97,9 @@ export function EpicCard({
             marginBottom: '20px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', flex: 1 }}>
             <span style={{ fontSize: '28px' }}>{epic.emoji}</span>
-            <div>
+            <div style={{ flex: 1 }}>
               <div
                 style={{
                   display: 'flex',
@@ -110,6 +120,48 @@ export function EpicCard({
                   {epic.name}
                 </h2>
                 <PhaseBadge phase={epic.phase} />
+                {onEdit && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit();
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      border: '1px solid #eae6e1',
+                      borderRadius: '8px',
+                      backgroundColor: 'transparent',
+                      color: '#7a756e',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Edit
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Delete "${epic.name}"? This cannot be undone.`)) {
+                        onDelete();
+                      }
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      border: '1px solid #fed7d7',
+                      borderRadius: '8px',
+                      backgroundColor: 'transparent',
+                      color: '#c53030',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
               <p
                 style={{
@@ -258,24 +310,29 @@ export function EpicCard({
               directive={directive}
               stats={directiveStats[index]}
               epicEmoji={epic.emoji}
-              onLog={() => onLogDirective(epic.id, directive.id)}
+              onLog={() => onCheckIn(directive.id)}
+              onEdit={onEditDirective ? () => onEditDirective(directive) : undefined}
+              onDelete={onDeleteDirective ? () => onDeleteDirective(directive.id) : undefined}
             />
           ))}
-          <button
-            style={{
-              padding: '14px',
-              backgroundColor: 'transparent',
-              border: '2px dashed #e0dbd4',
-              borderRadius: '12px',
-              color: '#9a958e',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              marginTop: '4px',
-            }}
-          >
-            + Add directive
-          </button>
+          {onAddDirective && (
+            <button
+              onClick={onAddDirective}
+              style={{
+                padding: '14px',
+                backgroundColor: 'transparent',
+                border: '2px dashed #e0dbd4',
+                borderRadius: '12px',
+                color: '#9a958e',
+                fontSize: '14px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                marginTop: '4px',
+              }}
+            >
+              + Add directive
+            </button>
+          )}
         </div>
       )}
     </div>

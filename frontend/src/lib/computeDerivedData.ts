@@ -436,3 +436,85 @@ export function generateSeedData(): MomentumData {
     ],
   };
 }
+
+/**
+ * Filter logs by epic, directive, and/or text search
+ */
+export function filterLogs(
+  logs: Log[],
+  filters: {
+    epicId?: string;
+    directiveId?: string;
+    searchText?: string;
+  }
+): Log[] {
+  return logs.filter((log) => {
+    // Filter by epic
+    if (filters.epicId && log.epicId !== filters.epicId) return false;
+
+    // Filter by directive
+    if (filters.directiveId && log.directiveId !== filters.directiveId)
+      return false;
+
+    // Filter by text search (case-insensitive)
+    if (filters.searchText) {
+      const searchLower = filters.searchText.toLowerCase();
+      return log.note.toLowerCase().includes(searchLower);
+    }
+
+    return true;
+  });
+}
+
+/**
+ * Group logs by date (most recent first)
+ */
+export function groupLogsByDate(logs: Log[]): Map<string, Log[]> {
+  const grouped = new Map<string, Log[]>();
+
+  // Sort logs by timestamp descending
+  const sorted = [...logs].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
+  sorted.forEach((log) => {
+    const date = log.timestamp.split('T')[0];
+    if (!grouped.has(date)) {
+      grouped.set(date, []);
+    }
+    grouped.get(date)!.push(log);
+  });
+
+  return grouped;
+}
+
+/**
+ * Format ISO date to readable format (e.g., "January 4, 2025")
+ */
+export function formatDate(isoDate: string): string {
+  const date = new Date(isoDate);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+/**
+ * Get relative date label (e.g., "Today", "Yesterday", or formatted date)
+ */
+export function getRelativeDateLabel(isoDate: string): string {
+  const date = new Date(isoDate);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const dateString = date.toISOString().split('T')[0];
+  const todayString = today.toISOString().split('T')[0];
+  const yesterdayString = yesterday.toISOString().split('T')[0];
+
+  if (dateString === todayString) return 'Today';
+  if (dateString === yesterdayString) return 'Yesterday';
+
+  return formatDate(isoDate);
+}

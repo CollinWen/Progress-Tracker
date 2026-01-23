@@ -6,6 +6,8 @@ interface DirectiveRowProps {
   stats: DirectiveStats;
   epicEmoji: string;
   onLog: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 const activityTypes: Record<
@@ -28,7 +30,7 @@ function daysSince(isoDate: string | null): number | null {
   return Math.floor(diffTime / (1000 * 60 * 60 * 24));
 }
 
-export function DirectiveRow({ directive, stats, onLog }: DirectiveRowProps) {
+export function DirectiveRow({ directive, stats, onLog, onEdit, onDelete }: DirectiveRowProps) {
   const daysSinceLastCheckin = daysSince(stats.lastCheckin);
 
   return (
@@ -96,6 +98,44 @@ export function DirectiveRow({ directive, stats, onLog }: DirectiveRowProps) {
             ? 'today'
             : `${daysSinceLastCheckin}d ago`}
         </div>
+        {onEdit && (
+          <button
+            onClick={onEdit}
+            style={{
+              padding: '8px 14px',
+              backgroundColor: 'transparent',
+              color: '#7a756e',
+              border: '1px solid #eae6e1',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Edit
+          </button>
+        )}
+        {onDelete && (
+          <button
+            onClick={() => {
+              if (confirm(`Delete "${directive.name}"? This cannot be undone.`)) {
+                onDelete();
+              }
+            }}
+            style={{
+              padding: '8px 14px',
+              backgroundColor: 'transparent',
+              color: '#c53030',
+              border: '1px solid #fed7d7',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Delete
+          </button>
+        )}
         <button
           onClick={onLog}
           style={{

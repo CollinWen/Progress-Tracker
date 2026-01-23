@@ -1,0 +1,38 @@
+import type { MomentumData, Epic, Directive, Log, User } from '../lib/types';
+
+/**
+ * Interface for all backend data operations.
+ * Implementations: LocalStorageService (MVP), GoogleDriveService (future)
+ */
+export interface DataService {
+  // Authentication
+  isAuthenticated(): boolean;
+  signIn(): Promise<User>;
+  signOut(): Promise<void>;
+  getCurrentUser(): User | null;
+
+  // Data operations
+  loadData(): Promise<MomentumData>;
+  saveData(data: MomentumData): Promise<void>;
+
+  // Epic operations
+  addEpic(epic: Omit<Epic, 'id' | 'createdAt' | 'directives'>): Promise<Epic>;
+  updateEpic(epicId: string, updates: Partial<Epic>): Promise<void>;
+  deleteEpic(epicId: string): Promise<void>;
+
+  // Directive operations
+  addDirective(
+    epicId: string,
+    directive: Omit<Directive, 'id' | 'createdAt'>
+  ): Promise<Directive>;
+  updateDirective(
+    epicId: string,
+    directiveId: string,
+    updates: Partial<Directive>
+  ): Promise<void>;
+  deleteDirective(epicId: string, directiveId: string): Promise<void>;
+
+  // Log operations
+  addLog(log: Omit<Log, 'id'>): Promise<Log>;
+  deleteLog(logId: string): Promise<void>;
+}
