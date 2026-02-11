@@ -7,7 +7,9 @@ export type CheckinInterval = 'daily' | 'weekly' | 'biweekly' | 'monthly';
 export type LogSource = 'manual' | 'voice' | 'text' | 'call';
 
 export interface User {
+  id: string;
   name: string;
+  email: string;
   createdAt: string; // ISO date
 }
 

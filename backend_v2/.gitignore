@@ -20,7 +20,7 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environments
+# Virtual Environment
 venv/
 env/
 ENV/
@@ -28,18 +28,32 @@ ENV/
 
 # Environment variables
 .env
+.env.local
+.env.uat
+.env.prod
+*.env
+
+# Firebase credentials
+serviceAccountKey*.json
+*credentials*.json
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
+.DS_Store
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
+*.cover
 
 # Logs
 *.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp

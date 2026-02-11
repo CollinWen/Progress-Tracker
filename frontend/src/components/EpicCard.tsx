@@ -1,5 +1,5 @@
 import type { Epic, Log, Directive } from '../lib/types';
-import { computeDirectiveStats } from '../lib/computeDerivedData';
+import { computeDirectiveStats, computeEpicStats } from '../lib/computeDerivedData';
 import { PhaseBadge } from './PhaseBadge';
 import { CommitGraph } from './CommitGraph';
 import { DirectiveRow } from './DirectiveRow';
@@ -37,37 +37,16 @@ export function EpicCard({
   onEditDirective,
   onDeleteDirective,
 }: EpicCardProps) {
+  // Compute epic stats (includes phase calculation)
+  const epicStats = computeEpicStats(epic, logs);
+
   const directiveStats = epic.directives.map((d) =>
-    computeDirectiveStats(d, logs)
+    computeDirectiveStats(d, logs, epic.checkinInterval)
   );
 
   const totalDays = directiveStats.reduce(
     (sum, stats) => sum + stats.daysActive,
     0
-  );
-
-  const epicLogs = logs.filter((log) => log.epicId === epic.id);
-
-  // Generate commit history for last 52 days
-  const commitHistory: number[] = [];
-  const now = new Date();
-
-  for (let i = 51; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    const dateString = date.toISOString().split('T')[0];
-
-    const hasActivity = epicLogs.some(
-      (log) => log.timestamp.split('T')[0] === dateString
-    );
-
-    commitHistory.push(hasActivity ? 1 : 0);
-  }
-
-  // Calculate recent density (last 14 days)
-  const last14Days = commitHistory.slice(-14);
-  const recentDensity = Math.round(
-    (last14Days.reduce((a, b) => a + b, 0) / 14) * 100
   );
 
   const daysRemaining = daysUntil(epic.deadline);
@@ -119,7 +98,7 @@ export function EpicCard({
                 >
                   {epic.name}
                 </h2>
-                <PhaseBadge phase={epic.phase} />
+                <PhaseBadge phase={epicStats.phase} />
                 {onEdit && (
                   <button
                     onClick={(e) => {
@@ -209,7 +188,7 @@ export function EpicCard({
             alignItems: 'flex-end',
           }}
         >
-          <CommitGraph history={commitHistory} />
+          <CommitGraph history={epicStats.commitHistory} />
 
           <div style={{ display: 'flex', gap: '40px' }}>
             <div style={{ textAlign: 'right' }}>
@@ -234,16 +213,16 @@ export function EpicCard({
                   fontSize: '36px',
                   fontWeight: 600,
                   color:
-                    recentDensity > 40
+                    epicStats.recentDensity > 40
                       ? '#4a7171'
-                      : recentDensity > 15
+                      : epicStats.recentDensity > 15
                       ? '#8a7f72'
                       : '#c5c0b8',
                   letterSpacing: '-0.03em',
                   lineHeight: 1,
                 }}
               >
-                {recentDensity}%
+                {epicStats.recentDensity}%
               </div>
               <div style={{ fontSize: '13px', color: '#9a958e', marginTop: '4px' }}>
                 last 2 weeks

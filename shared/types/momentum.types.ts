@@ -11,8 +11,14 @@ export type CheckinInterval = 'daily' | 'weekly' | 'biweekly' | 'monthly';
 
 export type LogSource = 'manual' | 'voice' | 'text' | 'call';
 
+export type SessionType = 'quick' | 'blocked' | 'deep';
+
+export type DirectiveProgressType = 'task' | 'ongoing'; // task = incomplete/complete, ongoing = inactive/active
+
 export interface User {
+  id: string;
   name: string;
+  email: string;
   createdAt: string; // ISO date
 }
 
@@ -20,8 +26,9 @@ export interface Directive {
   id: string;
   name: string;
   type: ActivityType;
-  interval: CheckinInterval;
   createdAt: string; // ISO date
+  progressType: DirectiveProgressType;
+  isComplete: boolean; // Only relevant for progressType="task"
 }
 
 export interface Epic {
@@ -29,7 +36,7 @@ export interface Epic {
   name: string;
   emoji: string;
   description: string;
-  phase: Phase;
+  checkinInterval: CheckinInterval; // Determines when epic needs attention
   createdAt: string; // ISO date
   deadline: string | null; // ISO date, optional
   target: {
@@ -46,6 +53,7 @@ export interface Log {
   directiveId: string;
   timestamp: string; // ISO datetime
   durationMinutes: number | null; // Optional
+  sessionType: SessionType | null; // quick, blocked, or deep
   note: string;
   source: LogSource;
 }
@@ -70,6 +78,7 @@ export interface EpicStats {
   totalHoursLogged: number;
   commitHistory: number[]; // 52 values (0 or 1)
   recentDensity: number; // percentage
+  phase: Phase; // Computed based on recent activity
 }
 
 export interface SuggestedAction {

@@ -1,69 +1,83 @@
 # Momentum - Personal Progress Tracker
 
-A personal productivity tool for tracking progress toward long-term goals through incremental daily/weekly check-ins. Built with React, FastAPI, and Google Drive storage.
+A personal productivity tool for tracking progress toward long-term goals through incremental check-ins. Built with React, TypeScript, FastAPI, and Firebase/Firestore.
 
-## 🎯 Overview
+## Overview
 
 Momentum helps you:
 - Track progress on long-term goals (epics)
-- Log daily/weekly check-ins (logs)
+- Log check-ins with flexible intervals
 - Visualize momentum with commit-style graphs
 - Get suggestions for neglected or high-momentum activities
-- Store all data securely in your Google Drive
+- Store data securely in Firebase Firestore
 
 **Key Philosophy**: Focus on "days invested" over hours tracked. Reduce friction, make progress visible, enable informed decisions about prioritization.
 
-## 🏗️ Architecture
+## Tech Stack
 
-### Tech Stack
 - **Frontend**: React 18 + TypeScript + Vite
-- **Backend**: Python 3.10+ + FastAPI
-- **Authentication**: Google OAuth 2.0 + JWT
-- **Storage**: Google Drive API (user's Drive)
-- **Styling**: Custom CSS (wellness aesthetic)
+- **Backend**: Python 3.11 + FastAPI + Firebase Admin SDK
+- **Database**: Google Cloud Firestore (NoSQL)
+- **Authentication**: Firebase Authentication (Google OAuth)
+- **Deployment**: Docker + Google Cloud Run
 
-### Project Structure
+## Project Structure
+
 ```
 Progress-Tracker/
-├── frontend/          # React app
+├── frontend/              # React + TypeScript app
 │   ├── src/
-│   │   ├── components/     # UI components
-│   │   ├── services/       # Data service layer
-│   │   ├── hooks/          # React hooks
-│   │   └── lib/            # Utilities
-│   └── package.json
-├── backend/           # FastAPI server
-│   ├── models/             # Pydantic models
-│   ├── services/           # Business logic
-│   ├── middleware/         # Auth middleware
-│   └── main.py            # API endpoints
-├── shared/            # TypeScript types
+│   │   ├── components/   # UI components
+│   │   ├── services/     # Data service layer (FirestoreService, LocalStorageService)
+│   │   ├── hooks/        # React hooks
+│   │   └── lib/          # Utilities and types
+│   ├── package.json
+│   ├── Dockerfile
+│   └── .env.example
+├── backend_v2/            # FastAPI + Firestore backend
+│   ├── models/           # Pydantic data models
+│   ├── services/         # Firebase & Firestore services
+│   ├── middleware/       # Auth middleware
+│   ├── main.py           # API endpoints
+│   ├── Dockerfile
+│   ├── README.md         # Backend-specific docs
+│   ├── DEPLOYMENT.md     # Deployment guide
+│   └── ENVIRONMENTS.md   # Multi-environment setup
+├── shared/                # Shared TypeScript types
 │   └── types/
-└── design_prompts/    # Original design docs
+├── docker-compose.yml     # Local development orchestration
+└── README.md              # This file
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
+
 - Node.js 18+
-- Python 3.10+
-- Google Cloud Platform account
+- Python 3.11+
+- Docker (optional, for containerized development)
+- Firebase project (see setup below)
 
-### 1. Google OAuth Setup
+### 1. Firebase Project Setup
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project
-3. Enable Google Drive API
-4. Create OAuth 2.0 credentials
-5. Add authorized redirect URI: `http://localhost:5173/auth/callback`
-6. Copy Client ID and Client Secret
-
-See [backend/SETUP.md](backend/SETUP.md) for detailed instructions.
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create a new Firebase project
+3. Enable **Firestore Database**:
+   - Go to Firestore Database → Create database
+   - Start in production mode
+   - Choose a location close to your users
+4. Enable **Authentication**:
+   - Go to Authentication → Get Started
+   - Enable "Google" sign-in provider
+5. Get your Firebase config:
+   - Go to Project Settings → General
+   - Under "Your apps", add a web app
+   - Copy the Firebase config values
 
 ### 2. Backend Setup
 
 ```bash
-cd backend
+cd backend_v2
 
 # Create virtual environment
 python -m venv venv
@@ -74,14 +88,15 @@ pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your Google OAuth credentials
-# Generate JWT_SECRET with: openssl rand -hex 32
+# Edit .env with your Firebase credentials
 
 # Run server
 uvicorn main:app --reload --port 8000
 ```
 
 Backend runs at `http://localhost:8000`
+
+**See [backend_v2/README.md](backend_v2/README.md) for detailed setup instructions.**
 
 ### 3. Frontend Setup
 
@@ -93,7 +108,7 @@ npm install
 
 # Configure environment
 cp .env.example .env
-# Add your VITE_GOOGLE_CLIENT_ID
+# Add your Firebase config and API URL
 
 # Run development server
 npm run dev
@@ -101,30 +116,26 @@ npm run dev
 
 Frontend runs at `http://localhost:5173`
 
-### 4. Verify Setup
+### 4. Using Docker (Recommended)
 
-1. Open `http://localhost:8000/health` - should show backend is healthy
-2. Open `http://localhost:5173` - should show Momentum app
-3. Try demo mode (works without backend)
+```bash
+# Start both frontend and backend
+docker-compose up
 
-## 📖 Documentation
+# Frontend: http://localhost:5173
+# Backend: http://localhost:8000
+```
 
-### Key Documents
-- [AUTHENTICATION_ARCHITECTURE.md](AUTHENTICATION_ARCHITECTURE.md) - Complete auth & storage architecture
-- [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Implementation details
-- [ARCHITECTURE.md](ARCHITECTURE.md) - Overall system architecture
-- [backend/SETUP.md](backend/SETUP.md) - Backend setup guide
-- [design_prompts/CLAUDE.md](design_prompts/CLAUDE.md) - Original design specification
+## Core Concepts
 
-## 🎨 Design Philosophy
+### Epics
+Large, overarching goals (e.g., "Launch lighting business", "Complete 2 endurance races in 2025")
 
-### Core Concepts
+### Directives
+Recurring activities within an epic that drive progress (e.g., "Market research", "Structured training")
 
-**Epics** - Large, overarching goals (e.g., "Launch lighting business")
-
-**Directives** - Recurring activities within an epic (e.g., "Market research")
-
-**Logs** - Individual check-in entries (the primary metric is days invested)
+### Logs
+Individual check-in entries. The primary metric is **days invested** (how many days you touched something), not hours or tasks completed.
 
 ### Activity Types
 - `build` - Active creation, making something
@@ -141,28 +152,11 @@ Frontend runs at `http://localhost:5173`
 - `refining` - Polishing, nearly complete
 - `paused` - Intentionally deprioritized
 
-## 🔒 Security & Privacy
-
-### Data Privacy Guarantees
-- **Your data, your Drive**: All data stored in your Google Drive
-- **No backend storage**: Backend never stores your progress data
-- **Minimal permissions**: App can only access files it creates
-- **Full control**: Export, backup, or delete data anytime
-- **Revocable access**: Revoke app access via Google settings
-
-### Security Features
-- OAuth 2.0 authentication with Google
-- JWT session tokens (7-day expiration)
-- HTTPS in production (required)
-- CORS protection
-- Comprehensive input validation
-- No sensitive data in logs
-
-## 🧪 Development
+## Development
 
 ### Running in Demo Mode
 
-The app works without backend using localStorage:
+The frontend works without backend using localStorage:
 
 ```bash
 cd frontend
@@ -173,179 +167,191 @@ Demo mode uses `LocalStorageService` and includes sample data.
 
 ### Running with Backend
 
-1. Start backend: `cd backend && uvicorn main:app --reload`
+1. Start backend: `cd backend_v2 && uvicorn main:app --reload`
 2. Start frontend: `cd frontend && npm run dev`
 3. Sign in with Google
-4. Data syncs to your Google Drive
+4. Data syncs to Firestore
 
-### Testing
+### Environment Variables
 
-Backend tests (to be implemented):
+**Frontend** (`.env`):
 ```bash
-cd backend
-pytest
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_API_URL=http://localhost:8000
 ```
 
-Frontend tests (to be implemented):
+**Backend** (`.env`):
+```bash
+ENVIRONMENT=development
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_CREDENTIALS_PATH=/path/to/serviceAccountKey.json
+ALLOWED_ORIGINS=http://localhost:5173
+DEBUG=true
+```
+
+## Deployment
+
+### Deploy to Google Cloud Run
+
+The recommended deployment platform for this stack.
+
+**Backend:**
+```bash
+cd backend_v2
+gcloud run deploy momentum-api \
+  --source . \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated
+```
+
+**Frontend:**
 ```bash
 cd frontend
-npm test
+npm run build
+# Deploy dist/ to Firebase Hosting, Vercel, or Netlify
 ```
 
-## 📊 API Endpoints
+**See [backend_v2/DEPLOYMENT.md](backend_v2/DEPLOYMENT.md) for comprehensive deployment instructions.**
 
-### Authentication
-- `POST /auth/google/signin` - Complete OAuth, get JWT
-- `POST /auth/signout` - Sign out user
-- `GET /auth/me` - Get current user
+### Multi-Environment Setup
 
-### Data
-- `GET /api/data?file_id=...` - Load all data
-- `POST /api/data?file_id=...` - Save all data
+Support for UAT and Production environments with separate Firebase projects.
 
-### Epics
+**See [backend_v2/ENVIRONMENTS.md](backend_v2/ENVIRONMENTS.md) for details.**
+
+## API Documentation
+
+Once the backend is running, visit:
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+
+### Key Endpoints
+
+**Authentication**
+- `GET /health` - Health check
+- User authentication handled via Firebase Auth
+
+**Epics**
+- `GET /api/epics` - List all epics
 - `POST /api/epics` - Create epic
 - `PUT /api/epics/{id}` - Update epic
 - `DELETE /api/epics/{id}` - Delete epic
 
-### Directives
-- `POST /api/epics/{id}/directives` - Add directive
-- `PUT /api/epics/{id}/directives/{id}` - Update directive
-- `DELETE /api/epics/{id}/directives/{id}` - Delete directive
+**Directives**
+- `GET /api/epics/{epic_id}/directives` - List directives
+- `POST /api/epics/{epic_id}/directives` - Create directive
+- `PUT /api/epics/{epic_id}/directives/{id}` - Update directive
+- `DELETE /api/epics/{epic_id}/directives/{id}` - Delete directive
 
-### Logs
-- `POST /api/logs` - Create log entry
-- `DELETE /api/logs/{id}` - Delete log
+**Check-ins (Logs)**
+- `GET /api/logs` - List check-ins
+- `POST /api/logs` - Create check-in
+- `DELETE /api/logs/{id}` - Delete check-in
 
-All data endpoints require JWT authentication.
+**Data**
+- `GET /api/data` - Get all user data (aggregated from Firestore)
 
-## 🛠️ Technology Choices
+All endpoints require Firebase ID token in `Authorization: Bearer <token>` header.
 
-### Why React?
-- Component-based UI (perfect for cards, modals)
-- Rich ecosystem
-- Fast development with Vite
+## Docker
 
-### Why FastAPI?
-- Async support for Drive API
-- Automatic API documentation
-- Type safety with Pydantic
-- Fast and modern
+### Building Images
 
-### Why Google Drive?
-- User owns their data
-- No database to manage
-- Built-in backup/sync
-- Familiar to users
-- OAuth integration
+```bash
+# Backend
+cd backend_v2
+docker build -t momentum-api .
 
-### Why JWT?
-- Stateless authentication
-- Easy horizontal scaling
-- Standard, well-tested
-- No session database needed
+# Frontend
+cd frontend
+docker build -t momentum-frontend .
+```
 
-## 📈 Performance
+### Running with Docker Compose
 
-### Current Performance
-- Sign-in: ~2-3 seconds (OAuth + Drive initialization)
-- Load data: ~500ms (single Drive API call)
-- Save data: ~500ms (atomic update)
-- CRUD operations: ~500-800ms
+```bash
+# Start services
+docker-compose up
 
-### Optimizations
-- Single JSON file (fast reads/writes)
-- File ID caching (avoid searches)
-- Optimistic UI updates (frontend)
-- Automatic token refresh
+# Stop services
+docker-compose down
 
-## 🗺️ Roadmap
+# Rebuild and start
+docker-compose up --build
+```
 
-### MVP (Current Status)
-- [x] Backend authentication
-- [x] Backend data API
-- [x] Backend Google Drive integration
-- [ ] Frontend GoogleDriveService implementation
-- [ ] Frontend authentication UI
-- [ ] End-to-end testing
+## Security & Privacy
 
-### v1.1
-- [ ] Create/edit/delete epics (UI)
-- [ ] Create/edit/delete directives (UI)
-- [ ] Weekly report view
-- [ ] Offline support with sync
+- **Firebase Authentication**: Secure Google OAuth sign-in
+- **Firestore Security Rules**: User data isolated by Firebase UID
+- **HTTPS Required**: Production deployments use HTTPS
+- **CORS Protection**: Configurable allowed origins
+- **No Shared Data**: Each user's data is completely isolated
 
-### Future
-- [ ] AI parsing of natural language check-ins
-- [ ] Voice/phone call check-ins
-- [ ] Photo attachments
-- [ ] Mobile app
-- [ ] Real-time sync (WebSockets)
-- [ ] End-to-end encryption
+### Firestore Security Rules
 
-## 🐛 Troubleshooting
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
 
-### Backend Issues
+      match /epics/{epicId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
 
-**Error: "Invalid client ID"**
-- Check `GOOGLE_CLIENT_ID` in `.env`
-- Ensure you copied the full ID
+        match /directives/{directiveId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+      }
 
-**Error: "Redirect URI mismatch"**
-- Add `http://localhost:5173/auth/callback` in Google Console
-- URIs are case-sensitive
+      match /checkins/{checkinId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}
+```
 
-**Error: "Module not found"**
-- Run `pip install -r requirements.txt`
-- Activate virtual environment
+## Troubleshooting
 
 ### Frontend Issues
 
-**Blank screen**
-- Check browser console for errors
-- Ensure backend is running (if not using demo mode)
-- Check CORS settings
+**"Firebase not initialized"**
+- Check `VITE_FIREBASE_*` environment variables in `.env`
+- Ensure Firebase config is correct
 
-**OAuth not working**
-- Verify Google OAuth credentials
-- Check redirect URI configuration
-- Ensure backend is running
+**Can't connect to backend**
+- Verify backend is running at `VITE_API_URL`
+- Check CORS settings in backend `.env`
 
-## 🤝 Contributing
+### Backend Issues
 
-This is a personal project, but suggestions and bug reports are welcome!
+**"Firebase credentials not found"**
+- Check `FIREBASE_CREDENTIALS_PATH` points to valid service account JSON
+- Verify file permissions
 
-### Development Workflow
-1. Create a feature branch
-2. Make changes
-3. Test locally
-4. Submit pull request
+**"Permission denied" on Firestore**
+- Check Firestore security rules
+- Ensure Firebase ID token is valid
 
-### Code Style
-- **Backend**: Follow PEP 8, use Black formatter
-- **Frontend**: Follow ESLint rules, use Prettier
-- **Types**: Full type coverage (TypeScript + Pydantic)
-- **Comments**: Docstrings for all functions
-
-## 📄 License
+## License
 
 MIT License - See LICENSE file for details
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 Inspired by:
 - Jira/scrum workflows (adapted for solo use)
 - Atomic Habits (behavioral science)
 - Tim Urban's work on procrastination
 - GitHub commit graphs
-- Wellness app aesthetics (Athletic Greens, David Protein)
-
-## 📧 Contact
-
-For questions or feedback, please open an issue.
 
 ---
 
-**Status**: Backend complete ✅ | Frontend in progress 🚧
+**Status**: Production Ready
 
-*Built with ❤️ for personal productivity*
+*Built for personal productivity*

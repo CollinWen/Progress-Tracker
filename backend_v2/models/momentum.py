@@ -12,6 +12,8 @@ ActivityType = Literal["build", "learn", "train", "research", "plan", "arrange"]
 Phase = Literal["exploring", "building", "active", "refining", "paused"]
 CheckinInterval = Literal["daily", "weekly", "biweekly", "monthly"]
 LogSource = Literal["manual", "voice", "text", "call"]
+SessionType = Literal["quick", "blocked", "deep"]
+DirectiveProgressType = Literal["task", "ongoing"]  # task = incomplete/complete, ongoing = inactive/active
 
 
 class User(BaseModel):
@@ -28,8 +30,9 @@ class Directive(BaseModel):
     id: str
     name: str
     type: ActivityType
-    interval: CheckinInterval
     created_at: str = Field(alias="createdAt")
+    progress_type: DirectiveProgressType = Field(default="ongoing", alias="progressType")
+    is_complete: bool = Field(default=False, alias="isComplete")  # Only relevant for progressType="task"
 
     class Config:
         populate_by_name = True
@@ -48,7 +51,7 @@ class Epic(BaseModel):
     name: str
     emoji: str
     description: str
-    phase: Phase
+    checkin_interval: CheckinInterval = Field(alias="checkinInterval")
     created_at: str = Field(alias="createdAt")
     deadline: Optional[str] = None
     target: Optional[Target] = None
@@ -65,6 +68,7 @@ class Log(BaseModel):
     directive_id: str = Field(alias="directiveId")
     timestamp: str
     duration_minutes: Optional[int] = Field(None, alias="durationMinutes")
+    session_type: Optional[SessionType] = Field(None, alias="sessionType")  # quick, blocked, or deep
     note: str
     source: LogSource
 
@@ -90,9 +94,12 @@ class CreateEpicRequest(BaseModel):
     name: str
     emoji: str
     description: str
-    phase: Phase = "exploring"
+    checkin_interval: CheckinInterval = Field(default="weekly", alias="checkinInterval")
     deadline: Optional[str] = None
     target: Optional[Target] = None
+
+    class Config:
+        populate_by_name = True
 
 
 class UpdateEpicRequest(BaseModel):
@@ -100,23 +107,33 @@ class UpdateEpicRequest(BaseModel):
     name: Optional[str] = None
     emoji: Optional[str] = None
     description: Optional[str] = None
-    phase: Optional[Phase] = None
+    checkin_interval: Optional[CheckinInterval] = Field(None, alias="checkinInterval")
     deadline: Optional[str] = None
     target: Optional[Target] = None
+
+    class Config:
+        populate_by_name = True
 
 
 class CreateDirectiveRequest(BaseModel):
     """Request to create a new directive."""
     name: str
     type: ActivityType
-    interval: CheckinInterval
+    progress_type: DirectiveProgressType = Field(default="ongoing", alias="progressType")
+
+    class Config:
+        populate_by_name = True
 
 
 class UpdateDirectiveRequest(BaseModel):
     """Request to update a directive."""
     name: Optional[str] = None
     type: Optional[ActivityType] = None
-    interval: Optional[CheckinInterval] = None
+    progress_type: Optional[DirectiveProgressType] = Field(None, alias="progressType")
+    is_complete: Optional[bool] = Field(None, alias="isComplete")
+
+    class Config:
+        populate_by_name = True
 
 
 class CreateLogRequest(BaseModel):
@@ -125,6 +142,7 @@ class CreateLogRequest(BaseModel):
     directive_id: str = Field(alias="directiveId")
     timestamp: Optional[str] = None  # ISO datetime, defaults to now
     duration_minutes: Optional[int] = Field(None, alias="durationMinutes")
+    session_type: Optional[SessionType] = Field(None, alias="sessionType")
     note: str
     source: LogSource = "manual"
 

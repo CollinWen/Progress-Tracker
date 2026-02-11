@@ -1,12 +1,12 @@
 import type { DataService } from './DataService';
 import { LocalStorageService } from './LocalStorageService';
-import { GoogleDriveService } from './GoogleDriveService';
+import { FirestoreService } from './FirestoreService';
 
 let activeService: DataService | null = null;
 
 /**
  * Get the active data service.
- * Defaults to GoogleDriveService for production use.
+ * Defaults to FirestoreService for production use.
  * Can be switched to LocalStorageService for demo mode.
  */
 export function getDataService(): DataService {
@@ -17,18 +17,18 @@ export function getDataService(): DataService {
     if (useDemoMode) {
       activeService = new LocalStorageService();
     } else {
-      // Default to GoogleDriveService
-      activeService = new GoogleDriveService();
+      // Default to FirestoreService
+      activeService = new FirestoreService();
     }
   }
   return activeService;
 }
 
 /**
- * Switch to Google Drive service (production mode).
+ * Switch to Firestore service (production mode).
  */
-export function switchToGoogleDrive(): void {
-  activeService = new GoogleDriveService();
+export function switchToFirestore(): void {
+  activeService = new FirestoreService();
   localStorage.removeItem('useDemoMode');
 }
 

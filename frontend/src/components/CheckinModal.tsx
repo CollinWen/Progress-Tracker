@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Epic, ActivityType } from '../lib/types';
+import type { Epic, ActivityType, SessionType } from '../lib/types';
 
 interface CheckinModalProps {
   isOpen: boolean;
@@ -15,20 +15,18 @@ export interface CheckinFormData {
   directiveId: string;
   note: string;
   durationMinutes: number | null;
-  activityType?: ActivityType;
+  sessionType?: SessionType;
 }
 
-const activityTypes: Array<{
-  key: ActivityType;
+const sessionTypes: Array<{
+  key: SessionType;
   label: string;
+  description: string;
   emoji: string;
 }> = [
-  { key: 'build', label: 'Build', emoji: '🛠' },
-  { key: 'learn', label: 'Learn', emoji: '📚' },
-  { key: 'train', label: 'Train', emoji: '💪' },
-  { key: 'research', label: 'Research', emoji: '🔍' },
-  { key: 'plan', label: 'Plan', emoji: '🎯' },
-  { key: 'arrange', label: 'Arrange', emoji: '📋' },
+  { key: 'quick', label: 'Quick', description: '10-15 min', emoji: '⚡' },
+  { key: 'blocked', label: 'Blocked', description: '30-60 min', emoji: '📦' },
+  { key: 'deep', label: 'Deep', description: '1+ hours', emoji: '🎯' },
 ];
 
 export function CheckinModal({
@@ -47,8 +45,8 @@ export function CheckinModal({
   );
   const [note, setNote] = useState('');
   const [duration, setDuration] = useState('');
-  const [selectedActivityType, setSelectedActivityType] = useState<
-    ActivityType | undefined
+  const [selectedSessionType, setSelectedSessionType] = useState<
+    SessionType | undefined
   >();
 
   const selectedEpic = epics.find((e) => e.id === selectedEpicId);
@@ -67,13 +65,13 @@ export function CheckinModal({
       directiveId: selectedDirectiveId,
       note,
       durationMinutes,
-      activityType: selectedActivityType,
+      sessionType: selectedSessionType,
     });
 
     // Reset form
     setNote('');
     setDuration('');
-    setSelectedActivityType(undefined);
+    setSelectedSessionType(undefined);
     if (!preselectedEpicId) setSelectedEpicId('');
     if (!preselectedDirectiveId) setSelectedDirectiveId('');
   };
@@ -228,6 +226,62 @@ export function CheckinModal({
           }}
         />
 
+        {/* Session type selector */}
+        <div style={{ marginBottom: '16px' }}>
+          <label
+            style={{
+              display: 'block',
+              fontSize: '13px',
+              fontWeight: 600,
+              color: '#7a756e',
+              marginBottom: '12px',
+            }}
+          >
+            Session type
+          </label>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '10px',
+            }}
+          >
+            {sessionTypes.map((type) => (
+              <button
+                key={type.key}
+                onClick={() =>
+                  setSelectedSessionType(
+                    selectedSessionType === type.key ? undefined : type.key
+                  )
+                }
+                style={{
+                  padding: '14px 12px',
+                  backgroundColor:
+                    selectedSessionType === type.key ? '#2d2d2d' : '#fafaf8',
+                  border:
+                    selectedSessionType === type.key
+                      ? '2px solid #2d2d2d'
+                      : '1px solid #eae6e1',
+                  borderRadius: '12px',
+                  color: selectedSessionType === type.key ? '#fff' : '#5a554e',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span style={{ fontSize: '20px' }}>{type.emoji}</span>
+                <span style={{ fontWeight: 600 }}>{type.label}</span>
+                <span style={{ fontSize: '11px', opacity: 0.8 }}>{type.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Duration */}
         <div style={{ marginBottom: '20px' }}>
           <label
@@ -257,48 +311,6 @@ export function CheckinModal({
               fontFamily: 'inherit',
             }}
           />
-        </div>
-
-        {/* Activity type selector */}
-        <div
-          style={{
-            display: 'flex',
-            gap: '8px',
-            flexWrap: 'wrap',
-            margin: '20px 0 28px',
-          }}
-        >
-          {activityTypes.map((type) => (
-            <button
-              key={type.key}
-              onClick={() =>
-                setSelectedActivityType(
-                  selectedActivityType === type.key ? undefined : type.key
-                )
-              }
-              style={{
-                padding: '10px 16px',
-                backgroundColor:
-                  selectedActivityType === type.key ? '#2d2d2d' : '#fafaf8',
-                border:
-                  selectedActivityType === type.key
-                    ? '1px solid #2d2d2d'
-                    : '1px solid #eae6e1',
-                borderRadius: '10px',
-                color: selectedActivityType === type.key ? '#fff' : '#5a554e',
-                fontSize: '13px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <span>{type.emoji}</span>
-              <span>{type.label}</span>
-            </button>
-          ))}
         </div>
 
         {/* Actions */}

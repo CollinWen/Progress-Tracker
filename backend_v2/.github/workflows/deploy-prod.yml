@@ -1,0 +1,73 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend_v2/**'
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  PROJECT_ID: momentum-prod  # Change to your Production Firebase project ID
+  SERVICE_NAME: momentum-api-prod
+  REGION: us-central1
+
+jobs:
+  deploy:
+    name: Deploy to Production Environment
+    runs-on: ubuntu-latest
+    environment: production  # Requires manual approval in GitHub settings
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY_PROD }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy ${{ env.SERVICE_NAME }} \
+          --source ./backend_v2 \
+          --platform managed \
+          --region ${{ env.REGION }} \
+          --project ${{ env.PROJECT_ID }} \
+          --allow-unauthenticated \
+          --memory 512Mi \
+          --cpu 1 \
+          --min-instances 0 \
+          --max-instances 10 \
+          --timeout 60 \
+          --set-env-vars ENVIRONMENT=production,ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS_PROD }}
+
+    - name: Get service URL
+      id: get-url
+      run: |
+        SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+          --region ${{ env.REGION }} \
+          --project ${{ env.PROJECT_ID }} \
+          --format 'value(status.url)')
+        echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+
+    - name: Test deployment
+      run: |
+        echo "Testing production deployment..."
+        curl -f ${{ steps.get-url.outputs.url }}/health || exit 1
+
+    - name: Output deployment info
+      run: |
+        echo "🚀 Production deployment successful!"
+        echo "Service URL: ${{ steps.get-url.outputs.url }}"
+        echo "Environment: Production"
+
+    - name: Create deployment record
+      run: |
+        echo "Deployment completed at $(date)"
+        echo "Commit: ${{ github.sha }}"
+        echo "Triggered by: ${{ github.actor }}"

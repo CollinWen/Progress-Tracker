@@ -37,17 +37,18 @@ export function DirectiveRow({ directive, stats, onLog, onEdit, onDelete }: Dire
     <div
       style={{
         padding: '18px 20px',
-        backgroundColor: stats.isOverdue ? '#fffbf5' : '#fafaf8',
+        backgroundColor: directive.isComplete ? '#f0fdf4' : (stats.isOverdue ? '#fffbf5' : '#fafaf8'),
         borderRadius: '14px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        border: stats.isOverdue ? '1px solid #f0e0c8' : '1px solid transparent',
+        border: directive.isComplete ? '1px solid #86efac' : (stats.isOverdue ? '1px solid #f0e0c8' : '1px solid transparent'),
+        opacity: directive.isComplete ? 0.7 : 1,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         <span style={{ fontSize: '16px' }}>
-          {activityTypes[directive.type].emoji}
+          {directive.isComplete ? '✓' : activityTypes[directive.type].emoji}
         </span>
         <div>
           <div
@@ -56,6 +57,7 @@ export function DirectiveRow({ directive, stats, onLog, onEdit, onDelete }: Dire
               fontWeight: 500,
               color: '#2d2d2d',
               marginBottom: '2px',
+              textDecoration: directive.isComplete ? 'line-through' : 'none',
             }}
           >
             {directive.name}
@@ -66,7 +68,7 @@ export function DirectiveRow({ directive, stats, onLog, onEdit, onDelete }: Dire
               color: '#9a958e',
             }}
           >
-            {directive.interval} check-in
+            {directive.progressType === 'task' ? (directive.isComplete ? 'Complete' : 'To-do') : 'Ongoing'}
           </div>
         </div>
       </div>

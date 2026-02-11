@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Directive, ActivityType, CheckinInterval } from '../lib/types';
+import type { Directive, ActivityType, DirectiveProgressType } from '../lib/types';
 
 interface DirectiveModalProps {
   directive?: Directive; // If provided, we're editing. Otherwise, creating.
@@ -10,12 +10,11 @@ interface DirectiveModalProps {
 export function DirectiveModal({ directive, onSave, onClose }: DirectiveModalProps) {
   const [name, setName] = useState(directive?.name || '');
   const [type, setType] = useState<ActivityType>(directive?.type || 'build');
-  const [interval, setInterval] = useState<CheckinInterval>(directive?.interval || 'weekly');
+  const [progressType, setProgressType] = useState<DirectiveProgressType>(directive?.progressType || 'ongoing');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const activityTypes: ActivityType[] = ['build', 'learn', 'train', 'research', 'plan', 'arrange'];
-  const intervals: CheckinInterval[] = ['daily', 'weekly', 'biweekly', 'monthly'];
 
   const activityTypeDescriptions = {
     build: 'Active creation, making something',
@@ -50,7 +49,7 @@ export function DirectiveModal({ directive, onSave, onClose }: DirectiveModalPro
       const directiveData: Partial<Directive> = {
         name: name.trim(),
         type,
-        interval,
+        progressType,
       };
 
       await onSave(directiveData);
@@ -160,36 +159,52 @@ export function DirectiveModal({ directive, onSave, onClose }: DirectiveModalPro
             </div>
           </div>
 
-          {/* Check-in Interval */}
+          {/* Progress Type */}
           <div style={{ marginBottom: '24px' }}>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#5a554e', marginBottom: '8px' }}>
-              CHECK-IN INTERVAL *
+              PROGRESS TYPE *
             </label>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {intervals.map((i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setInterval(i)}
-                  style={{
-                    padding: '10px 20px',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    textTransform: 'capitalize',
-                    border: interval === i ? 'none' : '1px solid #eae6e1',
-                    borderRadius: '10px',
-                    backgroundColor: interval === i ? '#4a7171' : 'transparent',
-                    color: interval === i ? '#fff' : '#7a756e',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {i}
-                </button>
-              ))}
-            </div>
-            <div style={{ fontSize: '12px', color: '#7a756e', marginTop: '8px' }}>
-              This determines when the directive is flagged as needing attention.
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setProgressType('task')}
+                style={{
+                  padding: '14px 16px',
+                  border: progressType === 'task' ? '2px solid #4a7171' : '1px solid #eae6e1',
+                  borderRadius: '12px',
+                  backgroundColor: progressType === 'task' ? '#f7f5f2' : '#fff',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#2d2d2d', marginBottom: '4px' }}>
+                  ✅ To-do / Task
+                </div>
+                <div style={{ fontSize: '12px', color: '#7a756e', lineHeight: '1.3' }}>
+                  Can be marked complete
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setProgressType('ongoing')}
+                style={{
+                  padding: '14px 16px',
+                  border: progressType === 'ongoing' ? '2px solid #4a7171' : '1px solid #eae6e1',
+                  borderRadius: '12px',
+                  backgroundColor: progressType === 'ongoing' ? '#f7f5f2' : '#fff',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#2d2d2d', marginBottom: '4px' }}>
+                  🔄 Ongoing Activity
+                </div>
+                <div style={{ fontSize: '12px', color: '#7a756e', lineHeight: '1.3' }}>
+                  Continuous practice
+                </div>
+              </button>
             </div>
           </div>
 

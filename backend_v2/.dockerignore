@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+
+# Environment files
+.env
+.env.local
+*.pem
+serviceAccountKey.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation
+README.md
+DEPLOYMENT.md
+.env.example
+
+# Git
+.git/
+.gitignore
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db

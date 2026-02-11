@@ -6,7 +6,8 @@ import type {
   DirectiveStats,
   EpicStats,
   CheckinInterval,
-  SuggestedAction
+  SuggestedAction,
+  Phase
 } from './types';
 
 /**
@@ -20,9 +21,9 @@ function daysSince(isoDate: string): number {
 }
 
 /**
- * Check if a directive is overdue based on its interval and last check-in
+ * Check if an epic is overdue for a check-in based on its interval and last check-in
  */
-function isDirectiveOverdue(lastCheckin: string | null, interval: CheckinInterval): boolean {
+function isEpicOverdue(lastCheckin: string | null, interval: CheckinInterval): boolean {
   if (!lastCheckin) return true;
 
   const days = daysSince(lastCheckin);
@@ -42,6 +43,90 @@ function isDirectiveOverdue(lastCheckin: string | null, interval: CheckinInterva
 }
 
 /**
+ * Calculate the phase of an epic based on recent activity patterns
+ *
+ * Phase logic:
+ * - exploring: Little to no activity (< 10% recent density)
+ * - building: Moderate activity, ramping up (10-30% recent density)
+ * - active: High activity (> 30% recent density)
+ * - refining: Declining activity from peak (was active, now moderate)
+ * - paused: No activity in last 30 days
+ */
+export function computeEpicPhase(
+  epic: Epic,
+  logs: Log[]
+): Phase {
+  const epicLogs = logs.filter(log => log.epicId === epic.id);
+
+  // Check if paused (no activity in 30 days)
+  if (epicLogs.length > 0) {
+    const lastLog = epicLogs.sort((a, b) =>
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    )[0];
+    const daysSinceLastActivity = daysSince(lastLog.timestamp);
+
+    if (daysSinceLastActivity > 30) {
+      return 'paused';
+    }
+  } else {
+    // No logs at all
+    return 'exploring';
+  }
+
+  // Calculate activity density over different time windows
+  const now = new Date();
+
+  // Last 14 days
+  const last14DaysActivity: number[] = [];
+  for (let i = 13; i >= 0; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    const dateString = date.toISOString().split('T')[0];
+
+    const hasActivity = epicLogs.some(log =>
+      log.timestamp.split('T')[0] === dateString
+    );
+
+    last14DaysActivity.push(hasActivity ? 1 : 0);
+  }
+
+  // Previous 14 days (days 15-28)
+  const previous14DaysActivity: number[] = [];
+  for (let i = 27; i >= 14; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    const dateString = date.toISOString().split('T')[0];
+
+    const hasActivity = epicLogs.some(log =>
+      log.timestamp.split('T')[0] === dateString
+    );
+
+    previous14DaysActivity.push(hasActivity ? 1 : 0);
+  }
+
+  const recentDensity = (last14DaysActivity.reduce((a, b) => a + b, 0) / 14) * 100;
+  const previousDensity = (previous14DaysActivity.reduce((a, b) => a + b, 0) / 14) * 100;
+
+  // Determine phase based on density and trend
+  if (recentDensity < 10) {
+    return 'exploring';
+  } else if (recentDensity > 40) {
+    return 'active';
+  } else if (recentDensity > previousDensity + 10) {
+    // Ramping up
+    return 'building';
+  } else if (previousDensity > 40 && recentDensity < previousDensity) {
+    // Coming down from peak
+    return 'refining';
+  } else if (recentDensity >= 10 && recentDensity <= 30) {
+    return 'building';
+  } else {
+    // Default for moderate activity
+    return 'building';
+  }
+}
+
+/**
  * Get unique dates from an array of logs
  */
 function getUniqueDates(logs: Log[]): string[] {
@@ -51,10 +136,12 @@ function getUniqueDates(logs: Log[]): string[] {
 
 /**
  * Compute statistics for a single directive
+ * Note: isOverdue is now based on epic's checkin interval, not directive's
  */
 export function computeDirectiveStats(
   directive: Directive,
-  logs: Log[]
+  logs: Log[],
+  epicCheckinInterval?: CheckinInterval
 ): DirectiveStats {
   const directiveLogs = logs.filter(log => log.directiveId === directive.id);
 
@@ -70,7 +157,10 @@ export function computeDirectiveStats(
       )[0].timestamp
     : null;
 
-  const isOverdue = isDirectiveOverdue(lastCheckin, directive.interval);
+  // If epic checkin interval provided, use it; otherwise default to not overdue
+  const isOverdue = epicCheckinInterval
+    ? isEpicOverdue(lastCheckin, epicCheckinInterval)
+    : false;
 
   return {
     daysActive,
@@ -90,7 +180,9 @@ export function computeEpicStats(
   const epicLogs = logs.filter(log => log.epicId === epic.id);
 
   // Calculate total days and hours across all directives
-  const directiveStats = epic.directives.map(d => computeDirectiveStats(d, logs));
+  const directiveStats = epic.directives.map(d =>
+    computeDirectiveStats(d, logs, epic.checkinInterval)
+  );
 
   const totalDaysInvested = directiveStats.reduce((sum, stats) => sum + stats.daysActive, 0);
   const totalHoursLogged = directiveStats.reduce((sum, stats) => sum + stats.hoursLogged, 0);
@@ -117,11 +209,15 @@ export function computeEpicStats(
     (last14Days.reduce((a, b) => a + b, 0) / 14) * 100
   );
 
+  // Compute phase based on activity
+  const phase = computeEpicPhase(epic, logs);
+
   return {
     totalDaysInvested,
     totalHoursLogged,
     commitHistory,
     recentDensity,
+    phase,
   };
 }
 
@@ -134,7 +230,7 @@ export function getSuggestedActions(
 ): SuggestedAction[] {
   const allDirectivesWithContext = data.epics.flatMap(epic =>
     epic.directives.map(directive => {
-      const stats = computeDirectiveStats(directive, data.logs);
+      const stats = computeDirectiveStats(directive, data.logs, epic.checkinInterval);
       return {
         directive,
         epic,
@@ -143,16 +239,16 @@ export function getSuggestedActions(
     })
   );
 
-  // Find neglected directives (overdue or never started)
+  // Find neglected directives (based on epic's check-in interval)
   const neglected = allDirectivesWithContext
-    .filter(({ stats, directive }) => {
+    .filter(({ stats, epic }) => {
       if (!stats.lastCheckin) return true;
       const days = daysSince(stats.lastCheckin);
       return (
-        (directive.interval === 'daily' && days > 2) ||
-        (directive.interval === 'weekly' && days > 10) ||
-        (directive.interval === 'biweekly' && days > 18) ||
-        (directive.interval === 'monthly' && days > 40)
+        (epic.checkinInterval === 'daily' && days > 2) ||
+        (epic.checkinInterval === 'weekly' && days > 10) ||
+        (epic.checkinInterval === 'biweekly' && days > 18) ||
+        (epic.checkinInterval === 'monthly' && days > 40)
       );
     })
     .sort((a, b) => {
@@ -199,7 +295,7 @@ export function generateSeedData(): MomentumData {
         name: 'Lighting Business',
         emoji: '💡',
         description: 'Computational paper lamps → market',
-        phase: 'building',
+        checkinInterval: 'weekly',
         createdAt: startOfYear,
         deadline: null,
         target: null,
@@ -208,28 +304,32 @@ export function generateSeedData(): MomentumData {
             id: 'dir_001',
             name: 'Assembly mechanism R&D',
             type: 'build',
-            interval: 'weekly',
+            progressType: 'ongoing',
+            isComplete: false,
             createdAt: startOfYear,
           },
           {
             id: 'dir_002',
             name: 'Unfolding algorithm',
             type: 'build',
-            interval: 'weekly',
+            progressType: 'task',
+            isComplete: false,
             createdAt: startOfYear,
           },
           {
             id: 'dir_003',
             name: 'Market & pricing research',
             type: 'research',
-            interval: 'biweekly',
+            progressType: 'ongoing',
+            isComplete: false,
             createdAt: startOfYear,
           },
           {
             id: 'dir_004',
             name: 'Store setup & fulfillment',
             type: 'arrange',
-            interval: 'monthly',
+            progressType: 'task',
+            isComplete: false,
             createdAt: startOfYear,
           },
         ],
@@ -239,7 +339,7 @@ export function generateSeedData(): MomentumData {
         name: 'Race Season 2025',
         emoji: '🏃',
         description: 'Half marathon + triathlon',
-        phase: 'active',
+        checkinInterval: 'weekly',
         createdAt: startOfYear,
         deadline: '2025-06-15',
         target: {
@@ -252,21 +352,24 @@ export function generateSeedData(): MomentumData {
             id: 'dir_005',
             name: 'Structured training',
             type: 'train',
-            interval: 'weekly',
+            progressType: 'ongoing',
+            isComplete: false,
             createdAt: startOfYear,
           },
           {
             id: 'dir_006',
             name: 'FTP & performance tracking',
             type: 'research',
-            interval: 'biweekly',
+            progressType: 'ongoing',
+            isComplete: false,
             createdAt: startOfYear,
           },
           {
             id: 'dir_007',
             name: 'Race registration & logistics',
             type: 'arrange',
-            interval: 'monthly',
+            progressType: 'task',
+            isComplete: false,
             createdAt: startOfYear,
           },
         ],
@@ -276,7 +379,7 @@ export function generateSeedData(): MomentumData {
         name: 'Deep Reading',
         emoji: '📖',
         description: 'Books + academic papers',
-        phase: 'active',
+        checkinInterval: 'daily',
         createdAt: startOfYear,
         deadline: null,
         target: {
@@ -289,14 +392,16 @@ export function generateSeedData(): MomentumData {
             id: 'dir_008',
             name: 'Book reading',
             type: 'learn',
-            interval: 'daily',
+            progressType: 'ongoing',
+            isComplete: false,
             createdAt: startOfYear,
           },
           {
             id: 'dir_009',
             name: 'Paper reading (3-4/month)',
             type: 'learn',
-            interval: 'weekly',
+            progressType: 'ongoing',
+            isComplete: false,
             createdAt: startOfYear,
           },
         ],
@@ -306,7 +411,7 @@ export function generateSeedData(): MomentumData {
         name: 'Side Projects',
         emoji: '⚡',
         description: '4 meaningful builds this year',
-        phase: 'exploring',
+        checkinInterval: 'weekly',
         createdAt: startOfYear,
         deadline: null,
         target: {
@@ -319,14 +424,16 @@ export function generateSeedData(): MomentumData {
             id: 'dir_010',
             name: 'This app (Momentum)',
             type: 'build',
-            interval: 'weekly',
+            progressType: 'task',
+            isComplete: false,
             createdAt: startOfYear,
           },
           {
             id: 'dir_011',
             name: 'Project ideation',
             type: 'plan',
-            interval: 'biweekly',
+            progressType: 'ongoing',
+            isComplete: false,
             createdAt: startOfYear,
           },
         ],
@@ -336,7 +443,7 @@ export function generateSeedData(): MomentumData {
         name: 'Academic Course',
         emoji: '🎓',
         description: 'Complete one structured course',
-        phase: 'paused',
+        checkinInterval: 'monthly',
         createdAt: startOfYear,
         deadline: null,
         target: {
@@ -349,14 +456,16 @@ export function generateSeedData(): MomentumData {
             id: 'dir_012',
             name: 'Course selection',
             type: 'research',
-            interval: 'monthly',
+            progressType: 'task',
+            isComplete: false,
             createdAt: startOfYear,
           },
           {
             id: 'dir_013',
             name: 'Weekly lessons',
             type: 'learn',
-            interval: 'weekly',
+            progressType: 'ongoing',
+            isComplete: false,
             createdAt: startOfYear,
           },
         ],
@@ -366,7 +475,7 @@ export function generateSeedData(): MomentumData {
         name: 'Daily Practice',
         emoji: '🌱',
         description: 'Chinese, cooking, screen discipline',
-        phase: 'active',
+        checkinInterval: 'daily',
         createdAt: startOfYear,
         deadline: null,
         target: null,
@@ -375,21 +484,24 @@ export function generateSeedData(): MomentumData {
             id: 'dir_014',
             name: 'Chinese practice',
             type: 'learn',
-            interval: 'daily',
+            progressType: 'ongoing',
+            isComplete: false,
             createdAt: startOfYear,
           },
           {
             id: 'dir_015',
             name: 'Cooking (3x/week)',
             type: 'build',
-            interval: 'weekly',
+            progressType: 'ongoing',
+            isComplete: false,
             createdAt: startOfYear,
           },
           {
             id: 'dir_016',
             name: 'Screen time review',
             type: 'plan',
-            interval: 'daily',
+            progressType: 'ongoing',
+            isComplete: false,
             createdAt: startOfYear,
           },
         ],
@@ -403,6 +515,7 @@ export function generateSeedData(): MomentumData {
         directiveId: 'dir_001',
         timestamp: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
         durationMinutes: 60,
+        sessionType: 'blocked',
         note: 'Worked on hinge mechanism, tried 3 different approaches',
         source: 'manual',
       },
@@ -412,6 +525,7 @@ export function generateSeedData(): MomentumData {
         directiveId: 'dir_005',
         timestamp: new Date(now.getTime() - 0 * 24 * 60 * 60 * 1000).toISOString(),
         durationMinutes: 90,
+        sessionType: 'deep',
         note: '10K run + strength training',
         source: 'manual',
       },
@@ -421,6 +535,7 @@ export function generateSeedData(): MomentumData {
         directiveId: 'dir_008',
         timestamp: new Date(now.getTime() - 0 * 24 * 60 * 60 * 1000).toISOString(),
         durationMinutes: 45,
+        sessionType: 'blocked',
         note: 'Read chapters 4-5 of Atomic Habits',
         source: 'manual',
       },
@@ -430,6 +545,7 @@ export function generateSeedData(): MomentumData {
         directiveId: 'dir_010',
         timestamp: new Date(now.getTime() - 0 * 24 * 60 * 60 * 1000).toISOString(),
         durationMinutes: 120,
+        sessionType: 'deep',
         note: 'Built UI components for Momentum app',
         source: 'manual',
       },

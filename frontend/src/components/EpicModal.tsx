@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Epic, Phase } from '../lib/types';
+import type { Epic, CheckinInterval } from '../lib/types';
 
 interface EpicModalProps {
   epic?: Epic; // If provided, we're editing. Otherwise, creating.
@@ -11,7 +11,7 @@ export function EpicModal({ epic, onSave, onClose }: EpicModalProps) {
   const [name, setName] = useState(epic?.name || '');
   const [emoji, setEmoji] = useState(epic?.emoji || '🎯');
   const [description, setDescription] = useState(epic?.description || '');
-  const [phase, setPhase] = useState<Phase>(epic?.phase || 'exploring');
+  const [checkinInterval, setCheckinInterval] = useState<CheckinInterval>(epic?.checkinInterval || 'weekly');
   const [deadline, setDeadline] = useState(epic?.deadline || '');
   const [hasTarget, setHasTarget] = useState(!!epic?.target);
   const [targetCurrent, setTargetCurrent] = useState(epic?.target?.current?.toString() || '0');
@@ -20,15 +20,12 @@ export function EpicModal({ epic, onSave, onClose }: EpicModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const phases: Phase[] = ['exploring', 'building', 'active', 'refining', 'paused'];
-
-  const phaseColors = {
-    exploring: '#c49a5c',
-    building: '#4a7171',
-    active: '#5c8a6e',
-    refining: '#7a756e',
-    paused: '#9a958e',
-  };
+  const checkinIntervals: Array<{ value: CheckinInterval; label: string; description: string }> = [
+    { value: 'daily', label: 'Daily', description: 'Check in every day' },
+    { value: 'weekly', label: 'Weekly', description: 'Check in once a week' },
+    { value: 'biweekly', label: 'Biweekly', description: 'Check in every 2 weeks' },
+    { value: 'monthly', label: 'Monthly', description: 'Check in once a month' },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +43,7 @@ export function EpicModal({ epic, onSave, onClose }: EpicModalProps) {
         name: name.trim(),
         emoji,
         description: description.trim(),
-        phase,
+        checkinInterval,
         deadline: deadline || null,
         target: hasTarget && targetTotal
           ? {
@@ -171,33 +168,37 @@ export function EpicModal({ epic, onSave, onClose }: EpicModalProps) {
             />
           </div>
 
-          {/* Phase */}
+          {/* Check-in Interval */}
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#5a554e', marginBottom: '8px' }}>
-              PHASE
+              CHECK-IN INTERVAL
             </label>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {phases.map((p) => (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+              {checkinIntervals.map((interval) => (
                 <button
-                  key={p}
+                  key={interval.value}
                   type="button"
-                  onClick={() => setPhase(p)}
+                  onClick={() => setCheckinInterval(interval.value)}
                   style={{
-                    padding: '8px 16px',
+                    padding: '12px 16px',
                     fontSize: '13px',
                     fontWeight: 600,
-                    textTransform: 'capitalize',
-                    border: phase === p ? 'none' : '1px solid #eae6e1',
-                    borderRadius: '10px',
-                    backgroundColor: phase === p ? phaseColors[p] : 'transparent',
-                    color: phase === p ? '#fff' : '#7a756e',
+                    textAlign: 'left',
+                    border: checkinInterval === interval.value ? '2px solid #2d2d2d' : '1px solid #eae6e1',
+                    borderRadius: '12px',
+                    backgroundColor: checkinInterval === interval.value ? '#fafaf8' : 'transparent',
+                    color: checkinInterval === interval.value ? '#2d2d2d' : '#7a756e',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
                   }}
                 >
-                  {p}
+                  <div style={{ fontWeight: 600, marginBottom: '2px' }}>{interval.label}</div>
+                  <div style={{ fontSize: '11px', opacity: 0.7 }}>{interval.description}</div>
                 </button>
               ))}
+            </div>
+            <div style={{ fontSize: '12px', color: '#9a958e', marginTop: '8px' }}>
+              Determines when the epic will be flagged as needing attention
             </div>
           </div>
 
