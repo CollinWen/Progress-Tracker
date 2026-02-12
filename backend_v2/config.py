@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     # Firebase Configuration
     firebase_project_id: str = os.getenv("FIREBASE_PROJECT_ID", "")
+    firebase_database_name: str = os.getenv("FIREBASE_DATABASE_NAME", "(default)")
     firebase_credentials_path: str = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
 
     # JWT Configuration (for custom tokens if needed)

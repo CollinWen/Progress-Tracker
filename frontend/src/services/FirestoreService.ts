@@ -9,14 +9,6 @@ import {
   User as FirebaseUser,
   signOut as firebaseSignOut
 } from 'firebase/auth';
-import {
-  getFirestore,
-  Firestore,
-  doc,
-  getDoc,
-  setDoc,
-  Timestamp
-} from 'firebase/firestore';
 
 interface FirebaseConfig {
   apiKey: string;
@@ -31,7 +23,6 @@ interface FirebaseConfig {
 export class FirestoreService implements DataService {
   private app: FirebaseApp | null = null;
   private auth: Auth | null = null;
-  private db: Firestore | null = null;
   private currentUser: User | null = null;
   private firebaseUser: FirebaseUser | null = null;
 
@@ -58,7 +49,6 @@ export class FirestoreService implements DataService {
 
     this.app = initializeApp(config);
     this.auth = getAuth(this.app);
-    this.db = getFirestore(this.app);
   }
 
   /**
@@ -135,20 +125,13 @@ export class FirestoreService implements DataService {
 
   /**
    * Ensure user document exists in Firestore.
+   * This is handled by the backend API when the user first loads data.
    */
   private async ensureUserDocument(): Promise<void> {
-    if (!this.db || !this.currentUser) return;
-
-    const userRef = doc(this.db, 'users', this.currentUser.id);
-    const userDoc = await getDoc(userRef);
-
-    if (!userDoc.exists()) {
-      await setDoc(userRef, {
-        name: this.currentUser.name,
-        email: this.currentUser.email,
-        createdAt: Timestamp.now(),
-      });
-    }
+    // No-op: User document creation is handled by backend
+    // The backend will create the user document when /api/data is called
+    if (!this.currentUser) return;
+    // User document will be created by backend on first API call
   }
 
   /**
