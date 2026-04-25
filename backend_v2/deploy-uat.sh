@@ -5,9 +5,16 @@
 
 set -e
 
+# Load environment variables
+if [[ ! -f .env.uat ]]; then
+  echo "Error: .env.uat not found. Copy .env.example to .env.uat and fill in values."
+  exit 1
+fi
+source .env.uat
+
 # Configuration
 SERVICE_NAME="momentum-api-uat"
-PROJECT_ID="momentum-uat"  # Change to your UAT Firebase project ID
+PROJECT_ID="${FIREBASE_PROJECT_ID}"
 REGION="us-central1"
 PLATFORM="managed"
 
@@ -50,7 +57,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --min-instances 0 \
   --max-instances 3 \
   --timeout 60 \
-  --set-env-vars ENVIRONMENT=uat
+  --env-vars-file .env.uat
 
 # Get service URL
 SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" \

@@ -40,12 +40,20 @@ backend_v2/htmlcov/
 serviceAccountKey*.json
 **/serviceAccountKey*.json
 
+# Firebase local tooling cache and config
+.firebase/
+.firebaserc
+!.firebaserc.example
+
 # Google Cloud credentials
 gcloud-key*.json
 credentials.json
 
 # Design prompts and documentation
 design_prompts/
+
+# Claude Code memory
+memory/
 
 # Editor directories and files
 .vscode/*

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 28" fill="none">
+  <!-- Two rising bars that form an "m" shape, echoing momentum/progress -->
+  <rect x="0" y="18" width="7" height="10" rx="2" fill="#2d2d2d"/>
+  <rect x="9" y="11" width="7" height="17" rx="2" fill="#2d2d2d"/>
+  <rect x="18" y="5" width="7" height="23" rx="2" fill="#2d2d2d"/>
+  <!-- "v" letterform as a subtle chevron -->
+  <path d="M32 4 L40 24 L48 4" stroke="#2d2d2d" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

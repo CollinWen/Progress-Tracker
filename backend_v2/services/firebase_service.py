@@ -42,6 +42,17 @@ class FirebaseService:
             if os.getenv("K_SERVICE"):
                 logger.info("Initializing Firebase with Application Default Credentials (Cloud Run)")
                 firebase_admin.initialize_app()
+                database_name = settings.firebase_database_name or "(default)"
+                logger.info(f"Using Firestore database: {database_name}")
+                if database_name != "(default)":
+                    self._db_client = firestore.Client(
+                        project=settings.firebase_project_id,
+                        database=database_name
+                    )
+                else:
+                    self._db_client = firestore.Client(
+                        project=settings.firebase_project_id
+                    )
             else:
                 # Local development: try credentials from environment variable first
                 cred_json = os.getenv("FIREBASE_CREDENTIALS_JSON")

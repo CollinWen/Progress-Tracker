@@ -46,10 +46,11 @@ app = FastAPI(
 )
 
 # Configure CORS
+allow_origins = settings.origins_list
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.origins_list,
-    allow_credentials=True,
+    allow_origins=allow_origins,
+    allow_credentials=allow_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -66,13 +67,25 @@ async def root():
     return {"status": "ok", "service": "Momentum API v2", "version": "2.0.0"}
 
 
+@app.get("/debug/cors")
+async def debug_cors():
+    return {"origins": settings.origins_list, "raw": settings.allowed_origins}
+
+
 @app.get("/health")
 async def health_check():
     """Detailed health check"""
+    try:
+        from services.firebase_service import firebase_service
+        db = firebase_service.db
+        db_status = "connected" if db else "not initialized"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
     return {
         "status": "healthy",
         "environment": settings.environment,
         "backend": "firebase",
+        "db": db_status,
     }
 
 
@@ -285,11 +298,12 @@ async def delete_directive(
 @app.get("/api/logs", response_model=List[Log])
 async def list_checkins(
     epic_id: str = None,
+    days: int = None,
     current_user: AuthUser = Depends(get_current_user),
 ):
-    """Get all check-ins for the user, optionally filtered by epic."""
+    """Get check-ins for the user, optionally filtered by epic and/or recency."""
     try:
-        checkins = await firestore_service.get_checkins(current_user.uid, epic_id)
+        checkins = await firestore_service.get_checkins(current_user.uid, epic_id, days=days)
         return checkins
 
     except Exception as e:

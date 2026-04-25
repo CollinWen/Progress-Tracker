@@ -2,8 +2,8 @@
 Pydantic models for Momentum data structures.
 These mirror the TypeScript types defined in shared/types/momentum.types.ts
 """
-from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
+from pydantic import BaseModel, Field, model_validator
+from typing import List, Optional, Literal, Any
 from datetime import datetime
 
 
@@ -25,6 +25,26 @@ class User(BaseModel):
         populate_by_name = True
 
 
+class Target(BaseModel):
+    """Target progress for an epic."""
+    current: int
+    total: int
+    unit: str  # e.g., "races", "books", "projects"
+
+
+class Attachment(BaseModel):
+    """Attachment (link, photo, or file) for an epic."""
+    id: str
+    type: Literal["link", "photo", "file"]
+    url: str
+    name: str
+    thumbnail: Optional[str] = None
+    created_at: str = Field(alias="createdAt")
+
+    class Config:
+        populate_by_name = True
+
+
 class Directive(BaseModel):
     """A recurring activity within an epic."""
     id: str
@@ -33,29 +53,38 @@ class Directive(BaseModel):
     created_at: str = Field(alias="createdAt")
     progress_type: DirectiveProgressType = Field(default="ongoing", alias="progressType")
     is_complete: bool = Field(default=False, alias="isComplete")  # Only relevant for progressType="task"
+    attachments: Optional[List[Attachment]] = None
+    order: Optional[int] = None  # For custom ordering
 
     class Config:
         populate_by_name = True
 
 
-class Target(BaseModel):
-    """Target progress for an epic."""
-    current: int
-    total: int
-    unit: str  # e.g., "races", "books", "projects"
-
-
 class Epic(BaseModel):
     """A large, overarching goal."""
     id: str
+    uuid: Optional[str] = None
     name: str
-    emoji: str
+    color: str
     description: str
     checkin_interval: CheckinInterval = Field(alias="checkinInterval")
     created_at: str = Field(alias="createdAt")
     deadline: Optional[str] = None
     target: Optional[Target] = None
+    tags: Optional[List[str]] = None
+    attachments: Optional[List[Attachment]] = None
+    notes: Optional[str] = None
     directives: List[Directive]
+    order: Optional[int] = None  # For custom ordering
+
+    @model_validator(mode='before')
+    @classmethod
+    def migrate_emoji_to_color(cls, data: Any) -> Any:
+        """Backward compatibility: convert 'emoji' field to 'color' if needed."""
+        if isinstance(data, dict):
+            if 'emoji' in data and 'color' not in data:
+                data['color'] = data['emoji']
+        return data
 
     class Config:
         populate_by_name = True
@@ -91,12 +120,16 @@ class MomentumData(BaseModel):
 
 class CreateEpicRequest(BaseModel):
     """Request to create a new epic."""
+    uuid: Optional[str] = None
     name: str
-    emoji: str
+    color: str
     description: str
     checkin_interval: CheckinInterval = Field(default="weekly", alias="checkinInterval")
     deadline: Optional[str] = None
     target: Optional[Target] = None
+    tags: Optional[List[str]] = None
+    attachments: Optional[List[Attachment]] = None
+    notes: Optional[str] = None
 
     class Config:
         populate_by_name = True
@@ -104,12 +137,17 @@ class CreateEpicRequest(BaseModel):
 
 class UpdateEpicRequest(BaseModel):
     """Request to update an epic."""
+    uuid: Optional[str] = None
     name: Optional[str] = None
-    emoji: Optional[str] = None
+    color: Optional[str] = None
     description: Optional[str] = None
     checkin_interval: Optional[CheckinInterval] = Field(None, alias="checkinInterval")
     deadline: Optional[str] = None
     target: Optional[Target] = None
+    tags: Optional[List[str]] = None
+    attachments: Optional[List[Attachment]] = None
+    notes: Optional[str] = None
+    order: Optional[int] = None
 
     class Config:
         populate_by_name = True
@@ -120,6 +158,7 @@ class CreateDirectiveRequest(BaseModel):
     name: str
     type: ActivityType
     progress_type: DirectiveProgressType = Field(default="ongoing", alias="progressType")
+    attachments: Optional[List[Attachment]] = None
 
     class Config:
         populate_by_name = True
@@ -131,6 +170,8 @@ class UpdateDirectiveRequest(BaseModel):
     type: Optional[ActivityType] = None
     progress_type: Optional[DirectiveProgressType] = Field(None, alias="progressType")
     is_complete: Optional[bool] = Field(None, alias="isComplete")
+    attachments: Optional[List[Attachment]] = None
+    order: Optional[int] = None
 
     class Config:
         populate_by_name = True

@@ -7,7 +7,8 @@ import type {
   EpicStats,
   CheckinInterval,
   SuggestedAction,
-  Phase
+  Phase,
+  ActivityType,
 } from './types';
 
 /**
@@ -286,14 +287,16 @@ export function generateSeedData(): MomentumData {
   return {
     version: 1,
     user: {
+      id: 'user_seed',
       name: 'Collin',
+      email: '',
       createdAt: startOfYear,
     },
     epics: [
       {
         id: 'epic_001',
         name: 'Lighting Business',
-        emoji: '💡',
+        color: '#4a7171',
         description: 'Computational paper lamps → market',
         checkinInterval: 'weekly',
         createdAt: startOfYear,
@@ -337,7 +340,7 @@ export function generateSeedData(): MomentumData {
       {
         id: 'epic_002',
         name: 'Race Season 2025',
-        emoji: '🏃',
+        color: '#5c8a6e',
         description: 'Half marathon + triathlon',
         checkinInterval: 'weekly',
         createdAt: startOfYear,
@@ -377,7 +380,7 @@ export function generateSeedData(): MomentumData {
       {
         id: 'epic_003',
         name: 'Deep Reading',
-        emoji: '📖',
+        color: '#8a7f72',
         description: 'Books + academic papers',
         checkinInterval: 'daily',
         createdAt: startOfYear,
@@ -409,7 +412,7 @@ export function generateSeedData(): MomentumData {
       {
         id: 'epic_004',
         name: 'Side Projects',
-        emoji: '⚡',
+        color: '#7171a8',
         description: '4 meaningful builds this year',
         checkinInterval: 'weekly',
         createdAt: startOfYear,
@@ -441,7 +444,7 @@ export function generateSeedData(): MomentumData {
       {
         id: 'epic_005',
         name: 'Academic Course',
-        emoji: '🎓',
+        color: '#a87171',
         description: 'Complete one structured course',
         checkinInterval: 'monthly',
         createdAt: startOfYear,
@@ -473,7 +476,7 @@ export function generateSeedData(): MomentumData {
       {
         id: 'epic_006',
         name: 'Daily Practice',
-        emoji: '🌱',
+        color: '#a8a371',
         description: 'Chinese, cooking, screen discipline',
         checkinInterval: 'daily',
         createdAt: startOfYear,
@@ -551,6 +554,135 @@ export function generateSeedData(): MomentumData {
       },
     ],
   };
+}
+
+// One entry per day; each entry maps epicId → 1 (active) or 0 (not active)
+export interface DailyMomentumEntry {
+  date: string; // YYYY-MM-DD
+  epicActivity: Record<string, number>;
+  totalActive: number; // how many epics had activity that day
+  totalHours: number; // sum of durationMinutes / 60 for all logs that day
+  epicHours: Record<string, number>; // hours per epic that day
+}
+
+/**
+ * Build a day-by-day breakdown of activity across all epics for the last N days.
+ * Used by the unified MomentumGraph visualization.
+ */
+export function getDailyMomentum(data: MomentumData, days: number = 30): DailyMomentumEntry[] {
+  const now = new Date();
+  const result: DailyMomentumEntry[] = [];
+
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    const dateString = date.toISOString().split('T')[0];
+
+    const epicActivity: Record<string, number> = {};
+    const epicHours: Record<string, number> = {};
+    let totalActive = 0;
+    let totalHours = 0;
+
+    for (const epic of data.epics) {
+      const dayLogs = data.logs.filter(
+        log => log.epicId === epic.id && log.timestamp.split('T')[0] === dateString
+      );
+      const active = dayLogs.length > 0 ? 1 : 0;
+      const hours = dayLogs.reduce((sum, l) => sum + (l.durationMinutes || 0), 0) / 60;
+      epicActivity[epic.id] = active;
+      epicHours[epic.id] = hours;
+      totalActive += active;
+      totalHours += hours;
+    }
+
+    result.push({ date: dateString, epicActivity, epicHours, totalActive, totalHours });
+  }
+
+  return result;
+}
+
+/**
+ * Compute the current activity streak (consecutive days with any log).
+ * If nothing logged today, counts back from yesterday.
+ */
+export function computeStreak(logs: Log[]): number {
+  const activeDates = new Set(logs.map(l => l.timestamp.split('T')[0]));
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  const checkDate = new Date(today);
+  if (!activeDates.has(todayStr)) {
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+
+  let streak = 0;
+  while (true) {
+    const dateStr = checkDate.toISOString().split('T')[0];
+    if (activeDates.has(dateStr)) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+/**
+ * Total hours logged in the last 7 days (rounded to 1 decimal).
+ */
+export function computeWeeklyHours(logs: Log[]): number {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+  cutoff.setHours(0, 0, 0, 0);
+  const total = logs
+    .filter(l => new Date(l.timestamp) >= cutoff)
+    .reduce((sum, l) => sum + (l.durationMinutes || 0), 0);
+  return Math.round((total / 60) * 10) / 10;
+}
+
+/**
+ * Break down total logged minutes by ActivityType across all directives.
+ * Logs with no durationMinutes are counted as 0.
+ */
+export function computeActivityBreakdown(data: MomentumData): Record<ActivityType, number> {
+  const breakdown: Record<ActivityType, number> = {
+    build: 0, learn: 0, train: 0, research: 0, plan: 0, arrange: 0,
+  };
+  for (const log of data.logs) {
+    const epic = data.epics.find(e => e.id === log.epicId);
+    if (!epic) continue;
+    const directive = epic.directives.find(d => d.id === log.directiveId);
+    if (!directive) continue;
+    breakdown[directive.type] += (log.durationMinutes || 0);
+  }
+  return breakdown;
+}
+
+/**
+ * Average recentDensity across epics that have any log history.
+ */
+export function computeOverallConsistency(data: MomentumData): number {
+  const activeEpics = data.epics.filter(e =>
+    data.logs.some(l => l.epicId === e.id)
+  );
+  if (!activeEpics.length) return 0;
+  const total = activeEpics.reduce((sum, e) => sum + computeEpicStats(e, data.logs).recentDensity, 0);
+  return Math.round(total / activeEpics.length);
+}
+
+/**
+ * Count unique days with any logged activity in the current calendar month.
+ */
+export function countActiveDaysThisMonth(logs: Log[]): number {
+  const now = new Date();
+  const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const activeDates = new Set(
+    logs
+      .filter(log => log.timestamp.startsWith(monthPrefix))
+      .map(log => log.timestamp.split('T')[0])
+  );
+  return activeDates.size;
 }
 
 /**

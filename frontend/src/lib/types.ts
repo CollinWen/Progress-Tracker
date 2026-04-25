@@ -6,6 +6,8 @@ export type CheckinInterval = 'daily' | 'weekly' | 'biweekly' | 'monthly';
 
 export type LogSource = 'manual' | 'voice' | 'text' | 'call';
 
+export type SessionType = 'quick' | 'blocked' | 'deep';
+
 export interface User {
   id: string;
   name: string;
@@ -17,24 +19,41 @@ export interface Directive {
   id: string;
   name: string;
   type: ActivityType;
-  interval: CheckinInterval;
+  progressType: 'ongoing' | 'task';
+  isComplete: boolean;
+  createdAt: string; // ISO date
+  attachments?: Attachment[]; // Links for resources, docs, etc.
+  order?: number; // For custom ordering
+}
+
+export interface Attachment {
+  id: string;
+  type: 'link' | 'photo' | 'file';
+  url: string;
+  name: string;
+  thumbnail?: string; // For photos
   createdAt: string; // ISO date
 }
 
 export interface Epic {
   id: string;
+  uuid?: string; // Unique identifier for tracking/sharing
   name: string;
-  emoji: string;
+  color: string; // hex color representing this epic
   description: string;
-  phase: Phase;
+  checkinInterval: CheckinInterval;
   createdAt: string; // ISO date
-  deadline: string | null; // ISO date, optional
+  deadline: string | null;
   target: {
     current: number;
     total: number;
-    unit: string; // e.g., "races", "books", "projects"
+    unit: string;
   } | null;
+  tags?: string[]; // Categorization tags
+  attachments?: Attachment[]; // Links, photos, files
+  notes?: string; // Long-form notes about the epic
   directives: Directive[];
+  order?: number; // For custom ordering
 }
 
 export interface Log {
@@ -42,7 +61,8 @@ export interface Log {
   epicId: string;
   directiveId: string;
   timestamp: string; // ISO datetime
-  durationMinutes: number | null; // Optional
+  durationMinutes: number | null;
+  sessionType: SessionType | null;
   note: string;
   source: LogSource;
 }
@@ -67,6 +87,7 @@ export interface EpicStats {
   totalHoursLogged: number;
   commitHistory: number[]; // 52 values (0 or 1)
   recentDensity: number; // percentage
+  phase: Phase;
 }
 
 export interface SuggestedAction {

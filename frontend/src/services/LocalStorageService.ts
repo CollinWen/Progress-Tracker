@@ -12,7 +12,9 @@ export class LocalStorageService implements DataService {
 
   // Demo user for unauthenticated mode
   private demoUser: User = {
+    id: 'demo',
     name: 'Demo User',
+    email: '',
     createdAt: new Date().toISOString().split('T')[0],
   };
 
@@ -191,5 +193,24 @@ export class LocalStorageService implements DataService {
 
     this.data!.logs = this.data!.logs.filter((log) => log.id !== logId);
     await this.saveData(this.data!);
+  }
+
+  async loadEpics(): Promise<Epic[]> {
+    const data = await this.loadData();
+    return data.epics;
+  }
+
+  async loadLogs(options?: { epicId?: string; days?: number }): Promise<Log[]> {
+    const data = await this.loadData();
+    let logs = data.logs;
+    if (options?.epicId) {
+      logs = logs.filter((l) => l.epicId === options.epicId);
+    }
+    if (options?.days !== undefined) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - options.days);
+      logs = logs.filter((l) => new Date(l.timestamp) >= cutoff);
+    }
+    return logs;
   }
 }

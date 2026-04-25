@@ -47,19 +47,6 @@ export class GoogleDriveService implements DataService {
   }
 
   /**
-   * Save session to sessionStorage.
-   */
-  private saveSession(token: string, fileId: string, user: User): void {
-    sessionStorage.setItem('momentum_token', token);
-    sessionStorage.setItem('momentum_file_id', fileId);
-    sessionStorage.setItem('momentum_user', JSON.stringify(user));
-
-    this.token = token;
-    this.fileId = fileId;
-    this.user = user;
-  }
-
-  /**
    * Clear session from sessionStorage.
    */
   private clearSession(): void {

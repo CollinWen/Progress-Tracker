@@ -19,7 +19,7 @@ class AuthUser:
         self.name = name or email
 
 
-async def get_current_user(authorization: str = Header(...)) -> AuthUser:
+async def get_current_user(authorization: Optional[str] = Header(None)) -> AuthUser:
     """
     Verify Firebase ID token and return authenticated user.
 

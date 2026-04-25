@@ -1,16 +1,27 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Loader2, Flame, Clock, TrendingUp, CalendarCheck, Sparkles, Target, ArrowRight, ChevronUp } from 'lucide-react';
 import { getDataService } from './services';
-import { getSuggestedActions } from './lib/computeDerivedData';
+import {
+  getSuggestedActions,
+  countActiveDaysThisMonth,
+  computeStreak,
+  computeWeeklyHours,
+  computeOverallConsistency,
+} from './lib/computeDerivedData';
 import { Header } from './components/Header';
-import { EpicCard } from './components/EpicCard';
 import { SuggestedAction } from './components/SuggestedAction';
+import { MomentumGraph } from './components/MomentumGraph';
 import { CheckinModal, CheckinFormData } from './components/CheckinModal';
 import { SignInPage } from './components/SignInPage';
 import { OAuthCallback } from './components/OAuthCallback';
 import { EpicModal } from './components/EpicModal';
 import { DirectiveModal } from './components/DirectiveModal';
-import type { MomentumData, Epic, Directive, User } from './lib/types';
+import { EpicDetailPage } from './components/EpicDetailPage';
+import { EpicsListPage } from './components/EpicsListPage';
+import { DraggableEpicList } from './components/DraggableEpicList';
+import { useTheme } from './contexts/ThemeContext';
+import type { MomentumData, Epic, Directive, Log, User } from './lib/types';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -29,15 +40,32 @@ function App() {
   const [preselectedDirectiveId, setPreselectedDirectiveId] = useState<string | undefined>();
 
   // UI state
-  const [expandedEpicId, setExpandedEpicId] = useState<string | null>(null);
+  const [expandedEpics, setExpandedEpics] = useState<Set<string>>(new Set());
 
   const service = getDataService();
 
-  // Initialize app - check authentication
+  // Merge freshly fetched logs into data without duplicating IDs.
+  const mergeLogs = (newLogs: Log[]) => {
+    setData(prev => {
+      if (!prev) return prev;
+      const existingIds = new Set(prev.logs.map(l => l.id));
+      const fresh = newLogs.filter(l => !existingIds.has(l.id));
+      return fresh.length ? { ...prev, logs: [...prev.logs, ...fresh] } : prev;
+    });
+  };
+
+  const handleLoadLogs = async (options?: { epicId?: string; days?: number }) => {
+    try {
+      const logs = await service.loadLogs(options);
+      mergeLogs(logs);
+    } catch (err) {
+      console.error('Failed to load logs:', err);
+    }
+  };
+
   useEffect(() => {
     const initialize = async () => {
       try {
-        // Check if we're returning from backend OAuth with token in URL
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const fileId = urlParams.get('fileId');
@@ -45,45 +73,33 @@ function App() {
         const errorParam = urlParams.get('error');
         const errorMessage = urlParams.get('message');
 
-        // Handle OAuth error from backend
         if (errorParam) {
           setError(errorMessage || 'Authentication failed');
-          // Clean up URL
           window.history.replaceState({}, '', window.location.pathname);
           setIsLoading(false);
           return;
         }
 
-        // Handle successful OAuth redirect from backend
         if (token && fileId && userName) {
-          console.log('Received OAuth callback from backend, saving session...');
-
-          // Save to sessionStorage
           sessionStorage.setItem('momentum_token', token);
           sessionStorage.setItem('momentum_file_id', fileId);
           sessionStorage.setItem('momentum_user', JSON.stringify({
             name: decodeURIComponent(userName),
             createdAt: new Date().toISOString(),
           }));
-
-          // Clean up URL to remove sensitive token
           window.history.replaceState({}, '', window.location.pathname);
-
-          // Reload to reinitialize with new session
           window.location.reload();
           return;
         }
 
-        // Normal initialization - check if already authenticated
         if (service.isAuthenticated()) {
           const currentUser = service.getCurrentUser();
           if (currentUser) {
             setUser(currentUser);
             setIsAuthenticated(true);
-
-            // Load data
-            const loadedData = await service.loadData();
-            setData(loadedData);
+            // Fetch only epics — show the UI immediately, logs load per-page.
+            const epics = await service.loadEpics();
+            setData({ version: 1, user: currentUser, epics, logs: [] });
           }
         }
       } catch (err) {
@@ -97,24 +113,20 @@ function App() {
     initialize();
   }, []);
 
-  // Sign in handler
   const handleSignIn = async () => {
     try {
       setError(undefined);
       const signedInUser = await service.signIn();
       setUser(signedInUser);
       setIsAuthenticated(true);
-
-      // Load data after sign-in
       const loadedData = await service.loadData();
       setData(loadedData);
     } catch (err) {
       console.error('Sign-in error:', err);
-      throw err; // Re-throw for SignInPage to handle
+      throw err;
     }
   };
 
-  // Sign out handler
   const handleSignOut = async () => {
     try {
       await service.signOut();
@@ -127,7 +139,6 @@ function App() {
     }
   };
 
-  // Check-in handlers
   const handleOpenCheckin = (epicId?: string, directiveId?: string) => {
     setPreselectedEpicId(epicId);
     setPreselectedDirectiveId(directiveId);
@@ -147,16 +158,13 @@ function App() {
         directiveId: formData.directiveId,
         timestamp: new Date().toISOString(),
         durationMinutes: formData.durationMinutes,
+        sessionType: formData.sessionType ?? null,
         note: formData.note,
         source: 'manual',
       });
 
-      // Optimistically update data
       if (data) {
-        setData({
-          ...data,
-          logs: [...data.logs, newLog],
-        });
+        setData({ ...data, logs: [...data.logs, newLog] });
       }
 
       handleCloseCheckin();
@@ -166,7 +174,6 @@ function App() {
     }
   };
 
-  // Epic handlers
   const handleCreateEpic = () => {
     setEditingEpic(undefined);
     setShowEpicModal(true);
@@ -180,48 +187,32 @@ function App() {
   const handleSaveEpic = async (epicData: Partial<Epic>) => {
     try {
       if (editingEpic) {
-        // Update existing epic
         await service.updateEpic(editingEpic.id, epicData);
-
-        // Optimistically update data
         if (data) {
           setData({
             ...data,
-            epics: data.epics.map((e) =>
-              e.id === editingEpic.id ? { ...e, ...epicData } : e
-            ),
+            epics: data.epics.map((e) => e.id === editingEpic.id ? { ...e, ...epicData } : e),
           });
         }
       } else {
-        // Create new epic
         const newEpic = await service.addEpic(epicData as any);
-
-        // Optimistically update data
         if (data) {
-          setData({
-            ...data,
-            epics: [...data.epics, newEpic],
-          });
+          setData({ ...data, epics: [...data.epics, newEpic] });
         }
       }
-
       setShowEpicModal(false);
       setEditingEpic(undefined);
     } catch (err) {
       console.error('Failed to save epic:', err);
-      throw err; // Let modal handle error display
+      throw err;
     }
   };
 
   const handleDeleteEpic = async (epicId: string) => {
-    if (!confirm('Are you sure you want to delete this epic? This will also delete all associated logs.')) {
-      return;
-    }
+    if (!confirm('Are you sure you want to delete this epic? This will also delete all associated logs.')) return;
 
     try {
       await service.deleteEpic(epicId);
-
-      // Optimistically update data
       if (data) {
         setData({
           ...data,
@@ -235,7 +226,22 @@ function App() {
     }
   };
 
-  // Directive handlers
+  const handleReorderEpics = async (reorderedEpics: Epic[]) => {
+    try {
+      if (data) {
+        setData({ ...data, epics: reorderedEpics });
+      }
+      await Promise.all(
+        reorderedEpics.map((epic) => service.updateEpic(epic.id, { order: epic.order }))
+      );
+    } catch (err) {
+      console.error('Failed to reorder epics:', err);
+      alert(err instanceof Error ? err.message : 'Failed to save new order');
+      const reloadedData = await service.loadData();
+      setData(reloadedData);
+    }
+  };
+
   const handleCreateDirective = (epic: Epic) => {
     setEditingDirective(undefined);
     setPreselectedEpicId(epic.id);
@@ -250,41 +256,24 @@ function App() {
   const handleSaveDirective = async (directiveData: Partial<Directive>) => {
     try {
       if (editingDirective) {
-        // Update existing directive
-        await service.updateDirective(
-          editingDirective.epic.id,
-          editingDirective.directive.id,
-          directiveData
-        );
-
-        // Optimistically update data
+        await service.updateDirective(editingDirective.epic.id, editingDirective.directive.id, directiveData);
         if (data) {
           setData({
             ...data,
             epics: data.epics.map((e) =>
               e.id === editingDirective.epic.id
-                ? {
-                    ...e,
-                    directives: e.directives.map((d) =>
-                      d.id === editingDirective.directive.id ? { ...d, ...directiveData } : d
-                    ),
-                  }
+                ? { ...e, directives: e.directives.map((d) => d.id === editingDirective.directive.id ? { ...d, ...directiveData } : d) }
                 : e
             ),
           });
         }
       } else if (preselectedEpicId) {
-        // Create new directive
         const newDirective = await service.addDirective(preselectedEpicId, directiveData as any);
-
-        // Optimistically update data
         if (data) {
           setData({
             ...data,
             epics: data.epics.map((e) =>
-              e.id === preselectedEpicId
-                ? { ...e, directives: [...e.directives, newDirective] }
-                : e
+              e.id === preselectedEpicId ? { ...e, directives: [...e.directives, newDirective] } : e
             ),
           });
         }
@@ -295,26 +284,20 @@ function App() {
       setPreselectedEpicId(undefined);
     } catch (err) {
       console.error('Failed to save directive:', err);
-      throw err; // Let modal handle error display
+      throw err;
     }
   };
 
   const handleDeleteDirective = async (epicId: string, directiveId: string) => {
-    if (!confirm('Are you sure you want to delete this directive? This will also delete all associated logs.')) {
-      return;
-    }
+    if (!confirm('Are you sure you want to delete this directive? This will also delete all associated logs.')) return;
 
     try {
       await service.deleteDirective(epicId, directiveId);
-
-      // Optimistically update data
       if (data) {
         setData({
           ...data,
           epics: data.epics.map((e) =>
-            e.id === epicId
-              ? { ...e, directives: e.directives.filter((d) => d.id !== directiveId) }
-              : e
+            e.id === epicId ? { ...e, directives: e.directives.filter((d) => d.id !== directiveId) } : e
           ),
           logs: data.logs.filter((log) => !(log.epicId === epicId && log.directiveId === directiveId)),
         });
@@ -325,22 +308,8 @@ function App() {
     }
   };
 
-  // Routing
   if (isLoading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f7f5f2'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-          <div style={{ fontSize: '16px', color: '#7a756e' }}>Loading...</div>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (
@@ -356,9 +325,10 @@ function App() {
               <MainApp
                 data={data}
                 user={user!}
-                expandedEpicId={expandedEpicId}
-                setExpandedEpicId={setExpandedEpicId}
+                expandedEpics={expandedEpics}
+                setExpandedEpics={setExpandedEpics}
                 onCheckIn={handleOpenCheckin}
+                onReorderEpics={handleReorderEpics}
                 onSignOut={handleSignOut}
                 onCreateEpic={handleCreateEpic}
                 onEditEpic={handleEditEpic}
@@ -366,14 +336,60 @@ function App() {
                 onCreateDirective={handleCreateDirective}
                 onEditDirective={handleEditDirective}
                 onDeleteDirective={handleDeleteDirective}
+                onLoadLogs={handleLoadLogs}
               />
+            )
+          }
+        />
+        <Route
+          path="/epics"
+          element={
+            !isAuthenticated ? (
+              <Navigate to="/" />
+            ) : data ? (
+              <EpicsListPage
+                data={data}
+                user={user!}
+                onCheckIn={handleOpenCheckin}
+                onSignOut={handleSignOut}
+                onCreateEpic={handleCreateEpic}
+                onEditEpic={handleEditEpic}
+                onDeleteEpic={handleDeleteEpic}
+                onReorderEpics={handleReorderEpics}
+                onCreateDirective={handleCreateDirective}
+                onEditDirective={handleEditDirective}
+                onDeleteDirective={handleDeleteDirective}
+              />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
+        />
+        <Route
+          path="/epic/:epicId"
+          element={
+            !isAuthenticated ? (
+              <Navigate to="/" />
+            ) : data ? (
+              <EpicDetailPage
+                epics={data.epics}
+                logs={data.logs}
+                onCheckIn={handleOpenCheckin}
+                onEditEpic={handleEditEpic}
+                onDeleteEpic={handleDeleteEpic}
+                onAddDirective={handleCreateDirective}
+                onEditDirective={handleEditDirective}
+                onDeleteDirective={handleDeleteDirective}
+                onLoadLogs={handleLoadLogs}
+              />
+            ) : (
+              <Navigate to="/" />
             )
           }
         />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
 
-      {/* Modals */}
       {showCheckinModal && data && (
         <CheckinModal
           isOpen={showCheckinModal}
@@ -389,10 +405,7 @@ function App() {
         <EpicModal
           epic={editingEpic}
           onSave={handleSaveEpic}
-          onClose={() => {
-            setShowEpicModal(false);
-            setEditingEpic(undefined);
-          }}
+          onClose={() => { setShowEpicModal(false); setEditingEpic(undefined); }}
         />
       )}
 
@@ -411,215 +424,374 @@ function App() {
   );
 }
 
-// Main application UI (when authenticated)
+// ── Loading Screen ────────────────────────────────────────────────────────────
+function LoadingScreen() {
+  const { colors } = useTheme();
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+      <div style={{ textAlign: 'center' }}>
+        <Loader2 size={36} color={colors.textTertiary} className="spin" style={{ margin: '0 auto 16px' }} />
+        <div style={{ fontSize: '15px', color: colors.textSecondary }}>Loading…</div>
+      </div>
+    </div>
+  );
+}
+
+// ── MainApp ───────────────────────────────────────────────────────────────────
 interface MainAppProps {
   data: MomentumData | null;
   user: User;
-  expandedEpicId: string | null;
-  setExpandedEpicId: (id: string | null) => void;
+  expandedEpics: Set<string>;
+  setExpandedEpics: (epics: Set<string>) => void;
   onCheckIn: (epicId?: string, directiveId?: string) => void;
   onSignOut: () => void;
   onCreateEpic: () => void;
   onEditEpic: (epic: Epic) => void;
   onDeleteEpic: (epicId: string) => void;
+  onReorderEpics: (reorderedEpics: Epic[]) => Promise<void>;
   onCreateDirective: (epic: Epic) => void;
   onEditDirective: (epic: Epic, directive: Directive) => void;
   onDeleteDirective: (epicId: string, directiveId: string) => void;
+  onLoadLogs: (options?: { epicId?: string; days?: number }) => Promise<void>;
+}
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
 }
 
 function MainApp({
   data,
   user,
-  expandedEpicId,
-  setExpandedEpicId,
+  expandedEpics,
+  setExpandedEpics,
   onCheckIn,
   onSignOut,
   onCreateEpic,
   onEditEpic,
   onDeleteEpic,
+  onReorderEpics,
   onCreateDirective,
   onEditDirective,
   onDeleteDirective,
+  onLoadLogs,
 }: MainAppProps) {
-  // If data is still loading, show loading state
+  const navigate = useNavigate();
+  const { colors } = useTheme();
+  const [showAllEpics, setShowAllEpics] = useState(false);
+
+  // Load the last 90 days of logs when the dashboard mounts.
+  useEffect(() => {
+    onLoadLogs({ days: 90 });
+  }, []);
+
+  const handleToggleExpanded = (epicId: string) => {
+    const newExpanded = new Set(expandedEpics);
+    if (newExpanded.has(epicId)) {
+      newExpanded.delete(epicId);
+    } else {
+      newExpanded.add(epicId);
+    }
+    setExpandedEpics(newExpanded);
+  };
+
   if (!data) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          backgroundColor: '#f7f5f2',
-          color: '#2d2d2d',
-        }}
-      >
-        <Header
-          user={user}
-          onCheckIn={() => onCheckIn()}
-          onSignOut={onSignOut}
-          onCreateEpic={onCreateEpic}
-        />
-        <main style={{ padding: '40px', maxWidth: '960px', margin: '0 auto' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: colors.background }}>
+        <Header user={user} data={null} onCheckIn={() => onCheckIn()} onSignOut={onSignOut} onCreateEpic={onCreateEpic} />
+        <main style={{ padding: '40px', maxWidth: '760px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', padding: '80px 24px' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-            <div style={{ fontSize: '16px', color: '#7a756e' }}>Loading your data...</div>
+            <Loader2 size={32} color={colors.textTertiary} className="spin" style={{ margin: '0 auto 16px' }} />
+            <div style={{ fontSize: '15px', color: colors.textSecondary }}>Loading your data…</div>
           </div>
         </main>
       </div>
     );
   }
 
-  // Get suggested actions
   const suggestedActions = getSuggestedActions(data, 4);
+  const activeDaysThisMonth = countActiveDaysThisMonth(data.logs);
+  const streak = computeStreak(data.logs);
+  const weeklyHours = computeWeeklyHours(data.logs);
+  const consistency = computeOverallConsistency(data);
+  const fullDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-  // Calculate day of year
-  const today = new Date();
-  const startOfYear = new Date(today.getFullYear(), 0, 0);
-  const diff = today.getTime() - startOfYear.getTime();
-  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-  // Get greeting based on time of day
-  const getGreeting = () => {
-    const hour = today.getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
+  const epicsList = (
+    <DraggableEpicList
+      epics={data.epics}
+      logs={data.logs}
+      expandedEpics={expandedEpics}
+      onToggleExpanded={handleToggleExpanded}
+      onCheckIn={onCheckIn}
+      onEditEpic={onEditEpic}
+      onDeleteEpic={onDeleteEpic}
+      onAddDirective={(epicId: string) => {
+        const epic = data.epics.find((e) => e.id === epicId);
+        if (epic) onCreateDirective(epic);
+      }}
+      onEditDirective={(epicId: string, directive: Directive) => {
+        const epic = data.epics.find((e) => e.id === epicId);
+        if (epic) onEditDirective(epic, directive);
+      }}
+      onDeleteDirective={onDeleteDirective}
+      onReorder={onReorderEpics}
+    />
+  );
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundColor: '#f7f5f2',
-        color: '#2d2d2d',
-      }}
-    >
-      <Header
-        user={user}
-        onCheckIn={() => onCheckIn()}
-        onSignOut={onSignOut}
-        onCreateEpic={onCreateEpic}
-      />
+    <div style={{ minHeight: '100vh', backgroundColor: colors.background, color: colors.text }}>
+      <Header user={user} data={data} onCheckIn={() => onCheckIn()} onSignOut={onSignOut} onCreateEpic={onCreateEpic} />
 
-      <main style={{ padding: '40px', maxWidth: '960px', margin: '0 auto' }}>
-        {/* Greeting */}
-        <div style={{ marginBottom: '48px' }}>
-          <div
-            style={{
-              fontSize: '14px',
-              color: '#9a958e',
-              marginBottom: '8px',
-              fontWeight: 500,
-            }}
-          >
-            Day {dayOfYear} of {today.getFullYear()}
+      <main style={{ padding: '32px 40px 64px', maxWidth: '1280px', margin: '0 auto' }}>
+
+        {/* ── Greeting ── */}
+        <div style={{ marginBottom: '28px' }}>
+          <div style={{ fontSize: '13px', color: colors.textTertiary, fontWeight: 500, marginBottom: '6px' }}>
+            {fullDate}
           </div>
-          <h2
-            style={{
-              margin: 0,
-              fontSize: '40px',
-              fontWeight: 600,
-              color: '#2d2d2d',
-              letterSpacing: '-0.03em',
-            }}
-          >
+          <h2 className="font-serif" style={{ margin: 0, fontSize: '38px', fontWeight: 600, color: colors.text, letterSpacing: '-0.03em', marginBottom: '20px' }}>
             {getGreeting()}, {user.name}
           </h2>
+
+          {/* ── Stats row ── */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <StatChip
+              icon={<Flame size={14} />}
+              value={streak > 0 ? `${streak}` : '—'}
+              label="day streak"
+              highlight={streak >= 3}
+            />
+            <StatChip
+              icon={<Clock size={14} />}
+              value={weeklyHours > 0 ? `${weeklyHours}h` : '—'}
+              label="this week"
+            />
+            <StatChip
+              icon={<TrendingUp size={14} />}
+              value={consistency > 0 ? `${consistency}%` : '—'}
+              label="consistent"
+              highlight={consistency >= 50}
+            />
+            <StatChip
+              icon={<CalendarCheck size={14} />}
+              value={`${activeDaysThisMonth}`}
+              label={activeDaysThisMonth === 1 ? 'day active' : 'days active'}
+            />
+          </div>
         </div>
 
-        {/* Suggested Actions */}
-        {suggestedActions.length > 0 && (
-          <section style={{ marginBottom: '56px' }}>
-            <h3
-              style={{
-                margin: '0 0 20px 0',
-                fontSize: '15px',
-                fontWeight: 700,
-                color: '#5a554e',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Suggested Actions
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {suggestedActions.map((action) => (
-                <SuggestedAction
-                  key={`${action.epic.id}-${action.directive.id}`}
-                  action={action}
-                  onCheckIn={() => onCheckIn(action.epic.id, action.directive.id)}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+        {/* ── Two-column layout ── */}
+        <div style={{ display: 'grid', gap: '24px', alignItems: 'start' }} className="home-grid">
 
-        {/* Epics List */}
-        {data.epics.length > 0 ? (
-          <section>
-            <h3
-              style={{
-                margin: '0 0 20px 0',
-                fontSize: '15px',
-                fontWeight: 700,
-                color: '#5a554e',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Your Epics
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {data.epics.map((epic) => (
-                <EpicCard
-                  key={epic.id}
-                  epic={epic}
-                  logs={data.logs}
-                  isExpanded={expandedEpicId === epic.id}
-                  onToggleExpanded={() =>
-                    setExpandedEpicId(expandedEpicId === epic.id ? null : epic.id)
-                  }
-                  onCheckIn={(directiveId: string) => onCheckIn(epic.id, directiveId)}
-                  onEdit={() => onEditEpic(epic)}
-                  onDelete={() => onDeleteEpic(epic.id)}
-                  onAddDirective={() => onCreateDirective(epic)}
-                  onEditDirective={(directive: Directive) => onEditDirective(epic, directive)}
-                  onDeleteDirective={(directiveId: string) => onDeleteDirective(epic.id, directiveId)}
-                />
-              ))}
-            </div>
-          </section>
-        ) : (
-          <div style={{
-            textAlign: 'center',
-            padding: '80px 24px',
-            background: '#fff',
-            borderRadius: '20px',
-            border: '2px dashed #eae6e1'
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎯</div>
-            <div style={{ fontSize: '18px', fontWeight: 600, color: '#2d2d2d', marginBottom: '8px' }}>
-              No epics yet
-            </div>
-            <div style={{ fontSize: '14px', color: '#7a756e', marginBottom: '24px' }}>
-              Create your first epic to start tracking progress
-            </div>
-            <button
-              onClick={onCreateEpic}
-              style={{
-                padding: '12px 24px',
-                backgroundColor: '#2d2d2d',
-                border: 'none',
-                borderRadius: '12px',
-                color: '#fff',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              + Create Epic
-            </button>
+          {/* Left column */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+            {/* ── Suggested Next ── */}
+            <section>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h3 className="section-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={11} />
+                  Suggested Next
+                </h3>
+                {suggestedActions.length > 0 && (
+                  <button
+                    onClick={() => navigate('/epics')}
+                    style={{ background: 'none', border: 'none', padding: 0, fontSize: '13px', color: colors.textTertiary, cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    Show all epics <ArrowRight size={13} />
+                  </button>
+                )}
+              </div>
+              {suggestedActions.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                  {suggestedActions.slice(0, 4).map((action) => (
+                    <SuggestedAction
+                      key={`${action.epic.id}-${action.directive.id}`}
+                      action={action}
+                      onCheckIn={() => onCheckIn(action.epic.id, action.directive.id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <Sparkles size={36} color={colors.inactive} style={{ margin: '0 auto 14px' }} />
+                  <div style={{ fontSize: '14px', color: colors.textTertiary }}>
+                    Log your first check-in to get suggestions
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* ── Momentum Graph ── */}
+            <section>
+              <MomentumGraph data={data} />
+            </section>
+
+            {/* ── Recent Activity ── */}
+            {data.logs.length > 0 && (
+              <section>
+                <RecentLogFeed data={data} />
+              </section>
+            )}
           </div>
-        )}
+
+          {/* Right column — Epics */}
+          <section>
+            {data.epics.length > 0 ? (
+              showAllEpics ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <h3 className="section-label" style={{ margin: 0 }}>All Epics</h3>
+                    <button
+                      onClick={() => setShowAllEpics(false)}
+                      style={{ background: 'none', border: 'none', padding: 0, fontSize: '13px', color: colors.textTertiary, cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <ChevronUp size={13} /> Collapse
+                    </button>
+                  </div>
+                  {epicsList}
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <h3 className="section-label" style={{ margin: 0 }}>Epics</h3>
+                    <button
+                      onClick={() => setShowAllEpics(true)}
+                      style={{ background: 'none', border: 'none', padding: 0, fontSize: '13px', color: colors.textTertiary, cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      Show all <ArrowRight size={13} />
+                    </button>
+                  </div>
+                  {epicsList}
+                </>
+              )
+            ) : (
+              <div className="empty-state">
+                <Target size={36} color={colors.inactive} style={{ margin: '0 auto 14px' }} />
+                <div style={{ fontSize: '16px', fontWeight: 600, color: colors.text, marginBottom: '8px' }}>No epics yet</div>
+                <div style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '20px' }}>
+                  Create your first epic to start tracking progress
+                </div>
+                <button
+                  onClick={onCreateEpic}
+                  style={{ padding: '12px 24px', backgroundColor: colors.text, border: 'none', borderRadius: '5px', color: colors.surface, fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  + Create Epic
+                </button>
+              </div>
+            )}
+          </section>
+        </div>
       </main>
+    </div>
+  );
+}
+
+// ── StatChip ──────────────────────────────────────────────────────────────────
+interface StatChipProps {
+  icon: React.ReactNode;
+  value: string;
+  label: string;
+  highlight?: boolean;
+}
+
+function StatChip({ icon, value, label, highlight = false }: StatChipProps) {
+  const { colors } = useTheme();
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '8px 14px',
+      backgroundColor: highlight ? colors.accentLight : colors.surface,
+      border: `1px solid ${highlight ? colors.accent + '33' : colors.border}`,
+      borderRadius: '5px',
+      whiteSpace: 'nowrap',
+    }}>
+      <span style={{ color: highlight ? colors.accent : colors.textTertiary, display: 'flex', alignItems: 'center' }}>{icon}</span>
+      <span style={{ fontSize: '18px', fontWeight: 700, color: highlight ? colors.accent : colors.text, letterSpacing: '-0.02em', lineHeight: 1 }}>
+        {value}
+      </span>
+      <span style={{ fontSize: '12px', color: colors.textTertiary, fontWeight: 500 }}>{label}</span>
+    </div>
+  );
+}
+
+// ── RecentLogFeed ─────────────────────────────────────────────────────────────
+function timeAgo(timestamp: string): string {
+  const diff = Date.now() - new Date(timestamp).getTime();
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(mins / 60);
+  const days = Math.floor(hours / 24);
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (mins > 0) return `${mins}m ago`;
+  return 'just now';
+}
+
+function RecentLogFeed({ data }: { data: MomentumData }) {
+  const { colors } = useTheme();
+  const recentLogs = [...data.logs]
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, 6);
+
+  if (recentLogs.length === 0) return null;
+
+  return (
+    <div style={{ backgroundColor: colors.surface, borderRadius: '20px', border: `1px solid ${colors.border}`, padding: '24px 28px' }}>
+      <div className="section-label" style={{ marginBottom: '16px' }}>Recent Activity</div>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {recentLogs.map((log, i) => {
+          const epic = data.epics.find(e => e.id === log.epicId);
+          const directive = epic?.directives.find(d => d.id === log.directiveId);
+          if (!epic || !directive) return null;
+          const isLast = i === recentLogs.length - 1;
+
+          return (
+            <div key={log.id} style={{
+              display: 'flex',
+              gap: '14px',
+              paddingBottom: isLast ? 0 : '14px',
+              marginBottom: isLast ? 0 : '14px',
+              borderBottom: isLast ? 'none' : `1px solid ${colors.borderLight}`,
+              alignItems: 'flex-start',
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, paddingTop: '2px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: epic.color, flexShrink: 0 }} />
+                {!isLast && <div style={{ width: '1px', flex: 1, backgroundColor: colors.graphEmpty, marginTop: '4px' }} />}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', marginBottom: '2px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {directive.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: colors.inactive, flexShrink: 0 }}>{timeAgo(log.timestamp)}</div>
+                </div>
+                <div style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: log.note ? '4px' : 0 }}>
+                  {epic.name}
+                  {log.durationMinutes && (
+                    <span style={{ marginLeft: '6px', color: colors.inactive }}>
+                      · {Math.round(log.durationMinutes / 60 * 10) / 10}h
+                    </span>
+                  )}
+                  {log.sessionType && (
+                    <span style={{ marginLeft: '6px', padding: '1px 6px', backgroundColor: colors.tagBg, borderRadius: '3px', fontSize: '10px', color: colors.textTertiary, textTransform: 'capitalize' }}>
+                      {log.sessionType}
+                    </span>
+                  )}
+                </div>
+                {log.note && (
+                  <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    {log.note}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

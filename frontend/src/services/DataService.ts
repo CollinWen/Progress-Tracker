@@ -14,6 +14,8 @@ export interface DataService {
   // Data operations
   loadData(): Promise<MomentumData>;
   saveData(data: MomentumData): Promise<void>;
+  loadEpics(): Promise<Epic[]>;
+  loadLogs(options?: { epicId?: string; days?: number }): Promise<Log[]>;
 
   // Epic operations
   addEpic(epic: Omit<Epic, 'id' | 'createdAt' | 'directives'>): Promise<Epic>;

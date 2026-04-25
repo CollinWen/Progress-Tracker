@@ -180,9 +180,28 @@ export class FirestoreService implements DataService {
   }
 
   /**
+   * Load only epics (with their directives) — no logs.
+   * Used for fast initial render.
+   */
+  async loadEpics(): Promise<Epic[]> {
+    return this.apiRequest<Epic[]>('/api/epics');
+  }
+
+  /**
+   * Load logs, optionally filtered by epic and/or date window.
+   */
+  async loadLogs(options?: { epicId?: string; days?: number }): Promise<Log[]> {
+    const params = new URLSearchParams();
+    if (options?.epicId) params.set('epic_id', options.epicId);
+    if (options?.days !== undefined) params.set('days', String(options.days));
+    const query = params.toString();
+    return this.apiRequest<Log[]>(`/api/logs${query ? '?' + query : ''}`);
+  }
+
+  /**
    * Save is not needed - individual operations handle persistence.
    */
-  async saveData(data: MomentumData): Promise<void> {
+  async saveData(_data: MomentumData): Promise<void> {
     // No-op: backend_v2 uses individual CRUD operations
     console.log('saveData called but not needed with Firestore backend');
   }

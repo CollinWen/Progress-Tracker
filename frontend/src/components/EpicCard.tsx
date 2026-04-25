@@ -1,8 +1,12 @@
+import { useNavigate } from 'react-router-dom';
+import { ChevronDown, Paperclip } from 'lucide-react';
 import type { Epic, Log, Directive } from '../lib/types';
 import { computeDirectiveStats, computeEpicStats } from '../lib/computeDerivedData';
 import { PhaseBadge } from './PhaseBadge';
 import { CommitGraph } from './CommitGraph';
 import { DirectiveRow } from './DirectiveRow';
+import { DropdownMenu } from './DropdownMenu';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface EpicCardProps {
   epic: Epic;
@@ -19,268 +23,154 @@ interface EpicCardProps {
 
 function daysUntil(isoDate: string | null): number | null {
   if (!isoDate) return null;
-  const date = new Date(isoDate);
-  const now = new Date();
-  const diffTime = date.getTime() - now.getTime();
-  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  return Math.floor((new Date(isoDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+}
+
+function deadlineColor(days: number): { bg: string; color: string } {
+  if (days <= 14) return { bg: '#fdecea', color: '#b52a2a' };
+  if (days <= 30) return { bg: '#fff3e0', color: '#a07840' };
+  if (days <= 60) return { bg: '#fff8e1', color: '#9a7830' };
+  return { bg: '#f0ece8', color: '#7a7570' };
+}
+
+interface ProgressRingProps {
+  current: number;
+  total: number;
+  unit: string;
+  color: string;
+}
+
+function ProgressRing({ current, total, unit, color }: ProgressRingProps) {
+  const { colors } = useTheme();
+  const SIZE = 52;
+  const STROKE = 3;
+  const r = (SIZE - STROKE) / 2;
+  const circ = 2 * Math.PI * r;
+  const pct = total > 0 ? Math.min(current / total, 1) : 0;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <svg width={SIZE} height={SIZE}>
+        <circle cx={SIZE / 2} cy={SIZE / 2} r={r} fill="none" stroke={colors.graphEmpty} strokeWidth={STROKE} />
+        <circle
+          cx={SIZE / 2} cy={SIZE / 2} r={r}
+          fill="none" stroke={color} strokeWidth={STROKE}
+          strokeDasharray={circ} strokeDashoffset={circ - pct * circ}
+          strokeLinecap="square"
+          transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
+          style={{ transition: 'stroke-dashoffset 0.4s ease' }}
+        />
+        <text x={SIZE / 2} y={SIZE / 2 - 4} textAnchor="middle" fontSize="10" fontWeight="600" fill={colors.text} fontFamily="inherit">
+          {current}/{total}
+        </text>
+        <text x={SIZE / 2} y={SIZE / 2 + 8} textAnchor="middle" fontSize="8" fill={colors.textTertiary} fontFamily="inherit">
+          {unit}
+        </text>
+      </svg>
+    </div>
+  );
 }
 
 export function EpicCard({
-  epic,
-  logs,
-  isExpanded,
-  onToggleExpanded,
-  onCheckIn,
-  onEdit,
-  onDelete,
-  onAddDirective,
-  onEditDirective,
-  onDeleteDirective,
+  epic, logs, isExpanded, onToggleExpanded, onCheckIn,
+  onEdit, onDelete, onAddDirective, onEditDirective, onDeleteDirective,
 }: EpicCardProps) {
-  // Compute epic stats (includes phase calculation)
+  const navigate = useNavigate();
+  const { colors } = useTheme();
   const epicStats = computeEpicStats(epic, logs);
-
-  const directiveStats = epic.directives.map((d) =>
-    computeDirectiveStats(d, logs, epic.checkinInterval)
-  );
-
-  const totalDays = directiveStats.reduce(
-    (sum, stats) => sum + stats.daysActive,
-    0
-  );
-
+  const directiveStats = epic.directives.map((d) => computeDirectiveStats(d, logs, epic.checkinInterval));
+  const totalDays = directiveStats.reduce((sum, s) => sum + s.daysActive, 0);
   const daysRemaining = daysUntil(epic.deadline);
 
+  const menuItems = [
+    { label: 'View Details', onClick: () => navigate(`/epic/${epic.id}`) },
+    ...(onEdit ? [{ label: 'Edit', onClick: onEdit }] : []),
+    ...(onDelete ? [{
+      label: 'Delete',
+      onClick: () => { if (confirm(`Delete "${epic.name}"? This cannot be undone.`)) onDelete!(); },
+      variant: 'danger' as const,
+    }] : []),
+  ];
+
   return (
-    <div
-      style={{
-        backgroundColor: '#fff',
-        borderRadius: '20px',
-        overflow: 'hidden',
-        marginBottom: '16px',
-        border: '1px solid #eae6e1',
-      }}
-    >
-      <div
-        onClick={onToggleExpanded}
-        style={{
-          padding: '28px 32px',
-          cursor: 'pointer',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            marginBottom: '20px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', flex: 1 }}>
-            <span style={{ fontSize: '28px' }}>{epic.emoji}</span>
+    <div style={{
+      backgroundColor: colors.surface,
+      borderRadius: '10px',
+      overflow: 'hidden',
+      border: `1px solid ${colors.border}`,
+      borderLeft: `3px solid ${epic.color}`,
+    }}>
+      <div onClick={onToggleExpanded} style={{ padding: '22px 24px', cursor: 'pointer' }}>
+        {/* Header row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1 }}>
+            {/* Color block — rectangular, sharp */}
+            <div style={{ width: '32px', height: '32px', borderRadius: '4px', backgroundColor: epic.color, flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  marginBottom: '6px',
-                }}
-              >
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: '22px',
-                    fontWeight: 600,
-                    color: '#2d2d2d',
-                    letterSpacing: '-0.02em',
-                  }}
-                >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                <h2 className="font-serif" style={{ margin: 0, fontSize: '19px', fontWeight: 600, color: colors.text, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
                   {epic.name}
                 </h2>
                 <PhaseBadge phase={epicStats.phase} />
-                {onEdit && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEdit();
-                    }}
-                    style={{
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      border: '1px solid #eae6e1',
-                      borderRadius: '8px',
-                      backgroundColor: 'transparent',
-                      color: '#7a756e',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Edit
-                  </button>
-                )}
-                {onDelete && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (confirm(`Delete "${epic.name}"? This cannot be undone.`)) {
-                        onDelete();
-                      }
-                    }}
-                    style={{
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      border: '1px solid #fed7d7',
-                      borderRadius: '8px',
-                      backgroundColor: 'transparent',
-                      color: '#c53030',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Delete
-                  </button>
-                )}
+                <DropdownMenu items={menuItems} />
               </div>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: '15px',
-                  color: '#7a756e',
-                }}
-              >
+              <p style={{ margin: 0, fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5, marginBottom: epic.tags && epic.tags.length > 0 ? '8px' : 0 }}>
                 {epic.description}
                 {daysRemaining !== null && (
-                  <span
-                    style={{
-                      marginLeft: '8px',
-                      padding: '3px 10px',
-                      backgroundColor:
-                        daysRemaining < 60 ? '#fff5eb' : '#f5f3f0',
-                      color: daysRemaining < 60 ? '#c49a5c' : '#9a958e',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                    }}
-                  >
-                    {daysRemaining}d left
+                  <span style={{ marginLeft: '8px', padding: '2px 7px', borderRadius: '3px', fontSize: '11px', fontWeight: 600, ...deadlineColor(daysRemaining) }}>
+                    {daysRemaining <= 0 ? 'overdue' : `${daysRemaining}d left`}
                   </span>
                 )}
               </p>
+              {epic.tags && epic.tags.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '6px' }}>
+                  {epic.tags.map((tag) => (
+                    <span key={tag} style={{ padding: '3px 8px', backgroundColor: colors.tagBg, borderRadius: '3px', fontSize: '11px', color: colors.textSecondary, fontWeight: 500, letterSpacing: '0.01em' }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {epic.attachments && epic.attachments.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '8px', fontSize: '11px', color: colors.textTertiary }}>
+                  <Paperclip size={11} />
+                  <span>{epic.attachments.length} attachment{epic.attachments.length !== 1 ? 's' : ''}</span>
+                </div>
+              )}
             </div>
           </div>
-          <div
-            style={{
-              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-              transition: 'transform 0.2s ease',
-              color: '#c5c0b8',
-              fontSize: '14px',
-            }}
-          >
-            ▼
+          <div style={{ transition: 'transform 0.2s ease', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', color: colors.inactive, marginLeft: '12px', flexShrink: 0, display: 'flex' }}>
+            <ChevronDown size={15} />
           </div>
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-end',
-          }}
-        >
-          <CommitGraph history={epicStats.commitHistory} />
-
-          <div style={{ display: 'flex', gap: '40px' }}>
+        {/* Stats row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <CommitGraph history={epicStats.commitHistory} color={epic.color} />
+          <div style={{ display: 'flex', gap: '28px' }}>
             <div style={{ textAlign: 'right' }}>
-              <div
-                style={{
-                  fontSize: '36px',
-                  fontWeight: 600,
-                  color: '#2d2d2d',
-                  letterSpacing: '-0.03em',
-                  lineHeight: 1,
-                }}
-              >
+              <div style={{ fontSize: '30px', fontWeight: 700, color: colors.text, letterSpacing: '-0.04em', lineHeight: 1 }}>
                 {totalDays}
               </div>
-              <div style={{ fontSize: '13px', color: '#9a958e', marginTop: '4px' }}>
-                days invested
-              </div>
+              <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '3px', letterSpacing: '0.02em' }}>days invested</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div
-                style={{
-                  fontSize: '36px',
-                  fontWeight: 600,
-                  color:
-                    epicStats.recentDensity > 40
-                      ? '#4a7171'
-                      : epicStats.recentDensity > 15
-                      ? '#8a7f72'
-                      : '#c5c0b8',
-                  letterSpacing: '-0.03em',
-                  lineHeight: 1,
-                }}
-              >
+              <div style={{ fontSize: '30px', fontWeight: 700, letterSpacing: '-0.04em', lineHeight: 1, color: epicStats.recentDensity > 40 ? epic.color : epicStats.recentDensity > 15 ? colors.textSecondary : colors.inactive }}>
                 {epicStats.recentDensity}%
               </div>
-              <div style={{ fontSize: '13px', color: '#9a958e', marginTop: '4px' }}>
-                last 2 weeks
-              </div>
+              <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '3px', letterSpacing: '0.02em' }}>last 2 weeks</div>
             </div>
             {epic.target && (
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ lineHeight: 1 }}>
-                  <span
-                    style={{
-                      fontSize: '36px',
-                      fontWeight: 600,
-                      color: '#2d2d2d',
-                      letterSpacing: '-0.03em',
-                    }}
-                  >
-                    {epic.target.current}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '24px',
-                      fontWeight: 500,
-                      color: '#c5c0b8',
-                    }}
-                  >
-                    /{epic.target.total}
-                  </span>
-                </div>
-                <div style={{ fontSize: '13px', color: '#9a958e', marginTop: '4px' }}>
-                  {epic.target.unit}
-                </div>
-              </div>
+              <ProgressRing current={epic.target.current} total={epic.target.total} unit={epic.target.unit} color={epic.color} />
             )}
           </div>
         </div>
       </div>
 
+      {/* Expanded directives */}
       {isExpanded && (
-        <div
-          style={{
-            padding: '0 32px 28px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '12px',
-              fontWeight: 600,
-              color: '#9a958e',
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              marginBottom: '8px',
-              paddingTop: '20px',
-              borderTop: '1px solid #f0ebe4',
-            }}
-          >
+        <div style={{ padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="section-label" style={{ marginBottom: '6px', paddingTop: '16px', borderTop: `1px solid ${colors.border}` }}>
             Directives
           </div>
           {epic.directives.map((directive, index) => (
@@ -288,7 +178,7 @@ export function EpicCard({
               key={directive.id}
               directive={directive}
               stats={directiveStats[index]}
-              epicEmoji={epic.emoji}
+              epicColor={epic.color}
               onLog={() => onCheckIn(directive.id)}
               onEdit={onEditDirective ? () => onEditDirective(directive) : undefined}
               onDelete={onDeleteDirective ? () => onDeleteDirective(directive.id) : undefined}
@@ -297,17 +187,7 @@ export function EpicCard({
           {onAddDirective && (
             <button
               onClick={onAddDirective}
-              style={{
-                padding: '14px',
-                backgroundColor: 'transparent',
-                border: '2px dashed #e0dbd4',
-                borderRadius: '12px',
-                color: '#9a958e',
-                fontSize: '14px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                marginTop: '4px',
-              }}
+              style={{ padding: '12px', backgroundColor: 'transparent', border: `1px dashed ${colors.dashed}`, borderRadius: '8px', color: colors.textTertiary, fontSize: '13px', fontWeight: 500, cursor: 'pointer', marginTop: '2px' }}
             >
               + Add directive
             </button>

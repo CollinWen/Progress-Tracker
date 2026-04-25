@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Loader2, BarChart2, Zap, ShieldCheck } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface SignInPageProps {
   onSignIn: () => Promise<void>;
@@ -8,11 +10,11 @@ interface SignInPageProps {
 export function SignInPage({ onSignIn, error }: SignInPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [localError, setLocalError] = useState<string | undefined>(error);
+  const { colors } = useTheme();
 
   const handleSignIn = async () => {
     setIsLoading(true);
     setLocalError(undefined);
-
     try {
       await onSignIn();
     } catch (err) {
@@ -27,72 +29,60 @@ export function SignInPage({ onSignIn, error }: SignInPageProps) {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(135deg, #f7f5f2 0%, #faf9f7 100%)',
-      padding: '24px'
+      backgroundColor: colors.background,
+      padding: '24px',
     }}>
       <div style={{
-        background: '#ffffff',
-        borderRadius: '24px',
-        padding: '56px 48px',
-        maxWidth: '480px',
+        backgroundColor: colors.surface,
+        borderRadius: '10px',
+        padding: '48px 44px',
+        maxWidth: '460px',
         width: '100%',
-        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
-        textAlign: 'center'
+        boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+        border: `1px solid ${colors.border}`,
+        textAlign: 'center',
       }}>
-        {/* Logo/Brand */}
-        <div style={{
-          fontSize: '48px',
-          fontWeight: '600',
-          letterSpacing: '-0.03em',
-          color: '#2d2d2d',
-          marginBottom: '16px'
-        }}>
+        {/* Brand */}
+        <div className="font-serif" style={{ fontSize: '44px', fontWeight: 600, letterSpacing: '-0.03em', color: colors.text, marginBottom: '14px' }}>
           momentum
         </div>
 
-        {/* Tagline */}
-        <p style={{
-          fontSize: '17px',
-          color: '#7a756e',
-          lineHeight: '1.6',
-          marginBottom: '48px'
-        }}>
+        <p style={{ fontSize: '16px', color: colors.textSecondary, lineHeight: '1.6', marginBottom: '40px' }}>
           Track progress toward your goals through<br />
           incremental daily check-ins
         </p>
 
-        {/* Sign In Button */}
+        {/* Sign in button */}
         <button
           onClick={handleSignIn}
           disabled={isLoading}
           style={{
             width: '100%',
-            padding: '16px 32px',
-            background: isLoading ? '#9a958e' : '#4a7171',
-            color: '#ffffff',
+            padding: '14px 28px',
+            backgroundColor: isLoading ? colors.inactive : colors.text,
+            color: colors.surface,
             border: 'none',
-            borderRadius: '12px',
-            fontSize: '16px',
-            fontWeight: '500',
+            borderRadius: '5px',
+            fontSize: '15px',
+            fontWeight: 600,
             cursor: isLoading ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s ease',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '12px',
-            marginBottom: '16px'
+            gap: '10px',
+            marginBottom: '14px',
+            letterSpacing: '0.01em',
           }}
         >
           {isLoading ? (
             <>
-              <svg style={{ animation: 'spin 1s linear infinite', width: '20px', height: '20px' }} viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeDasharray="31.4 31.4" strokeDashoffset="10" />
-              </svg>
-              <span>Signing in...</span>
+              <Loader2 size={18} className="spin" />
+              <span>Signing in…</span>
             </>
           ) : (
             <>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              {/* Google icon */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="currentColor"/>
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="currentColor"/>
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="currentColor"/>
@@ -103,83 +93,34 @@ export function SignInPage({ onSignIn, error }: SignInPageProps) {
           )}
         </button>
 
-        {/* Error Message */}
         {localError && (
-          <div style={{
-            padding: '12px 16px',
-            background: '#fff5f5',
-            border: '1px solid #fed7d7',
-            borderRadius: '8px',
-            color: '#c53030',
-            fontSize: '14px',
-            marginBottom: '16px'
-          }}>
+          <div style={{ padding: '10px 14px', backgroundColor: colors.dangerBg, border: `1px solid ${colors.dangerBorder}`, borderRadius: '5px', color: colors.danger, fontSize: '13px', marginBottom: '14px' }}>
             {localError}
           </div>
         )}
 
-        {/* Privacy Note */}
-        <p style={{
-          fontSize: '13px',
-          color: '#9a958e',
-          lineHeight: '1.5'
-        }}>
+        <p style={{ fontSize: '12px', color: colors.textTertiary, lineHeight: '1.5' }}>
           Your data is stored securely in your Google Drive.<br />
           We never access your other files.
         </p>
 
-        {/* Features List */}
-        <div style={{
-          marginTop: '48px',
-          textAlign: 'left',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
-            <div style={{ fontSize: '20px' }}>📊</div>
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: '500', color: '#2d2d2d', marginBottom: '2px' }}>
-                Visual Progress Tracking
-              </div>
-              <div style={{ fontSize: '13px', color: '#7a756e', lineHeight: '1.4' }}>
-                GitHub-style commit graphs show your momentum
+        {/* Features list */}
+        <div style={{ marginTop: '40px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '14px', borderTop: `1px solid ${colors.border}`, paddingTop: '28px' }}>
+          {[
+            { icon: <BarChart2 size={18} color={colors.accent} />, title: 'Visual Progress Tracking', desc: 'GitHub-style commit graphs show your momentum' },
+            { icon: <Zap size={18} color={colors.accent} />, title: 'Low-Friction Check-ins', desc: 'Quick daily logs with optional details' },
+            { icon: <ShieldCheck size={18} color={colors.accent} />, title: 'Your Data, Your Control', desc: 'All data stored in your Google Drive, export anytime' },
+          ].map(({ icon, title, desc }) => (
+            <div key={title} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              <div style={{ flexShrink: 0, marginTop: '1px' }}>{icon}</div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: colors.text, marginBottom: '2px' }}>{title}</div>
+                <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: '1.4' }}>{desc}</div>
               </div>
             </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
-            <div style={{ fontSize: '20px' }}>⚡</div>
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: '500', color: '#2d2d2d', marginBottom: '2px' }}>
-                Low-Friction Check-ins
-              </div>
-              <div style={{ fontSize: '13px', color: '#7a756e', lineHeight: '1.4' }}>
-                Quick daily logs with optional details
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
-            <div style={{ fontSize: '20px' }}>🔒</div>
-            <div>
-              <div style={{ fontSize: '14px', fontWeight: '500', color: '#2d2d2d', marginBottom: '2px' }}>
-                Your Data, Your Control
-              </div>
-              <div style={{ fontSize: '13px', color: '#7a756e', lineHeight: '1.4' }}>
-                All data stored in your Google Drive, export anytime
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }
