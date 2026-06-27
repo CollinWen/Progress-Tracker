@@ -23,6 +23,10 @@ export class LocalStorageService implements DataService {
     return false; // Always false for localStorage
   }
 
+  async waitForAuth(): Promise<User | null> {
+    return null; // LocalStorage mode has no persistent auth.
+  }
+
   async signIn(): Promise<User> {
     throw new Error('Sign in not available in demo mode. Use Google Drive service.');
   }

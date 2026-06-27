@@ -25,6 +25,17 @@ function daysUntil(isoDate: string | null): number | null {
   return Math.floor((new Date(isoDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
+function TickSectionLabel({ children }: { children: React.ReactNode }) {
+  const { colors } = useTheme();
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+      <div style={{ width: '14px', height: '1px', backgroundColor: colors.text, flexShrink: 0 }} />
+      <span className="section-label" style={{ margin: 0, flexShrink: 0 }}>{children}</span>
+      <div style={{ flex: 1, height: '1px', backgroundColor: colors.border }} />
+    </div>
+  );
+}
+
 export function EpicDetailPage({
   epics,
   logs,
@@ -40,7 +51,6 @@ export function EpicDetailPage({
   const navigate = useNavigate();
   const { colors } = useTheme();
 
-  // Load only this epic's logs when the page mounts.
   useEffect(() => {
     if (epicId) onLoadLogs({ epicId });
   }, [epicId]);
@@ -52,7 +62,10 @@ export function EpicDetailPage({
       <div style={{ minHeight: '100vh', backgroundColor: colors.background, padding: '40px' }}>
         <div style={{ maxWidth: '960px', margin: '0 auto', textAlign: 'center' }}>
           <h1 style={{ fontSize: '24px', color: colors.text, marginBottom: '16px' }}>Epic not found</h1>
-          <button onClick={() => navigate('/')} style={{ padding: '11px 22px', backgroundColor: colors.text, color: colors.surface, border: 'none', borderRadius: '5px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+          <button
+            onClick={() => navigate('/')}
+            style={{ padding: '10px 20px', backgroundColor: colors.text, color: colors.surface, border: `1px solid ${colors.text}`, borderRadius: 0, fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}
+          >
             Back to Dashboard
           </button>
         </div>
@@ -67,94 +80,197 @@ export function EpicDetailPage({
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.background }}>
-      {/* Top bar */}
+
+      {/* ── Top bar ── */}
       <div style={{ backgroundColor: colors.surface, borderBottom: `1px solid ${colors.border}` }}>
-        <div style={{ maxWidth: '960px', margin: '0 auto', padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ maxWidth: '960px', margin: '0 auto', padding: '16px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button
-            onClick={() => navigate('/')}
-            style={{ padding: '10px 18px', backgroundColor: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: '5px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            onClick={() => navigate(-1)}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: 'transparent',
+              color: colors.textSecondary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: 0,
+              fontSize: '10px',
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
           >
-            <ArrowLeft size={14} /> Back
+            <ArrowLeft size={12} /> Back
           </button>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
             <button
               onClick={() => onEditEpic(epic)}
-              style={{ padding: '10px 18px', backgroundColor: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: '5px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: 'transparent',
+                color: colors.textSecondary,
+                border: `1px solid ${colors.border}`,
+                borderRadius: 0,
+                fontSize: '10px',
+                fontWeight: 700,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
             >
-              Edit Epic
+              Edit
             </button>
             <button
               onClick={() => { if (confirm(`Delete "${epic.name}"? This cannot be undone.`)) { onDeleteEpic(epic.id); navigate('/'); } }}
-              style={{ padding: '10px 18px', backgroundColor: 'transparent', color: colors.danger, border: `1px solid ${colors.dangerBorder}`, borderRadius: '5px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: 'transparent',
+                color: colors.danger,
+                border: `1px solid ${colors.dangerBorder}`,
+                borderRadius: 0,
+                fontSize: '10px',
+                fontWeight: 700,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
             >
-              Delete Epic
+              Delete
             </button>
           </div>
         </div>
       </div>
 
-      {/* Main content */}
+      {/* ── Main content ── */}
       <div style={{ maxWidth: '960px', margin: '0 auto', padding: '40px 40px 64px' }}>
-        {/* Epic header */}
-        <div style={{ marginBottom: '32px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '5px', backgroundColor: epic.color, flexShrink: 0 }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                <h1 className="font-serif" style={{ margin: 0, fontSize: '32px', fontWeight: 600, color: colors.text, letterSpacing: '-0.02em' }}>
-                  {epic.name}
-                </h1>
-                <PhaseBadge phase={epicStats.phase} />
-                {daysRemaining !== null && (
-                  <span style={{ padding: '3px 8px', backgroundColor: daysRemaining < 60 ? colors.warningBg : colors.hover, color: daysRemaining < 60 ? colors.warning : colors.textTertiary, borderRadius: '3px', fontSize: '11px', fontWeight: 700 }}>
-                    {daysRemaining <= 0 ? 'overdue' : `${daysRemaining}d left`}
-                  </span>
-                )}
-              </div>
-              <p style={{ margin: 0, fontSize: '16px', color: colors.textSecondary, lineHeight: 1.5 }}>{epic.description}</p>
-              {epic.tags && epic.tags.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
-                  {epic.tags.map((tag) => (
-                    <span key={tag} style={{ padding: '4px 10px', backgroundColor: colors.tagBg, borderRadius: '3px', fontSize: '12px', color: colors.textSecondary, fontWeight: 500 }}>
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
+
+        {/* ── Epic header ── */}
+        <div style={{
+          backgroundColor: colors.surface,
+          border: `1px solid ${colors.border}`,
+          borderLeft: `3px solid ${epic.color}`,
+          padding: '28px 32px',
+          marginBottom: '32px',
+        }}>
+          {/* Epic code row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '10px', fontWeight: 700, color: epic.color, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+              Epic detail
+            </span>
+            <div style={{ width: '18px', height: '1px', backgroundColor: colors.border }} />
+            <PhaseBadge phase={epicStats.phase} />
+            {daysRemaining !== null && (
+              <span style={{
+                fontSize: '9px',
+                fontWeight: 700,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: daysRemaining <= 0 ? colors.danger : daysRemaining < 60 ? colors.warning : colors.textTertiary,
+                borderLeft: `1px solid ${colors.border}`,
+                paddingLeft: '10px',
+              }}>
+                {daysRemaining <= 0 ? 'Overdue' : `${daysRemaining}d remaining`}
+              </span>
+            )}
           </div>
 
-          {/* Stats */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '24px' }}>
+          {/* Name */}
+          <h1 className="font-serif" style={{
+            margin: '0 0 8px',
+            fontSize: '36px',
+            fontWeight: 600,
+            letterSpacing: '-0.025em',
+            lineHeight: 1.05,
+            color: colors.text,
+          }}>
+            {epic.name}
+          </h1>
+
+          {/* Description */}
+          {epic.description && (
+            <p style={{ margin: '0 0 16px', fontSize: '14px', color: colors.textSecondary, lineHeight: 1.6 }}>
+              {epic.description}
+            </p>
+          )}
+
+          {/* Tags */}
+          {epic.tags && epic.tags.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '16px' }}>
+              {epic.tags.map((tag) => (
+                <span key={tag} style={{
+                  padding: '2px 7px',
+                  background: 'transparent',
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 0,
+                  fontSize: '10px',
+                  color: colors.textSecondary,
+                  fontWeight: 500,
+                  letterSpacing: '0.02em',
+                }}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Stats row */}
+          <div style={{
+            borderTop: `1px solid ${colors.borderLight}`,
+            paddingTop: '20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+          }}>
             <CommitGraph history={epicStats.commitHistory} color={epic.color} />
-            <div style={{ display: 'flex', gap: '32px' }}>
+            <div style={{ display: 'flex', gap: '36px', paddingLeft: '24px', borderLeft: `1px solid ${colors.borderLight}` }}>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '36px', fontWeight: 600, color: colors.text, letterSpacing: '-0.03em', lineHeight: 1 }}>{totalDays}</div>
-                <div style={{ fontSize: '13px', color: colors.textTertiary, marginTop: '4px' }}>days invested</div>
+                <div style={{ fontSize: '32px', fontWeight: 700, color: colors.text, letterSpacing: '-0.04em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                  {totalDays}
+                </div>
+                <div style={{ marginTop: '4px', fontSize: '9px', fontWeight: 700, color: colors.textTertiary, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+                  Days invested
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '36px', fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1, color: epicStats.recentDensity > 40 ? epic.color : epicStats.recentDensity > 15 ? colors.textSecondary : colors.inactive }}>
+                <div style={{
+                  fontSize: '32px',
+                  fontWeight: 700,
+                  letterSpacing: '-0.04em',
+                  lineHeight: 1,
+                  fontVariantNumeric: 'tabular-nums',
+                  color: epicStats.recentDensity > 40 ? epic.color : epicStats.recentDensity > 15 ? colors.textSecondary : colors.inactive,
+                }}>
                   {epicStats.recentDensity}%
                 </div>
-                <div style={{ fontSize: '13px', color: colors.textTertiary, marginTop: '4px' }}>last 2 weeks</div>
+                <div style={{ marginTop: '4px', fontSize: '9px', fontWeight: 700, color: colors.textTertiary, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+                  Last 14 days
+                </div>
               </div>
               {epic.target && (
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ lineHeight: 1 }}>
-                    <span style={{ fontSize: '36px', fontWeight: 600, color: colors.text, letterSpacing: '-0.03em' }}>{epic.target.current}</span>
-                    <span style={{ fontSize: '24px', fontWeight: 500, color: colors.inactive }}>/{epic.target.total}</span>
+                    <span style={{ fontSize: '32px', fontWeight: 700, color: colors.text, letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums' }}>
+                      {epic.target.current}
+                    </span>
+                    <span style={{ fontSize: '20px', fontWeight: 500, color: colors.inactive }}>
+                      /{epic.target.total}
+                    </span>
                   </div>
-                  <div style={{ fontSize: '13px', color: colors.textTertiary, marginTop: '4px' }}>{epic.target.unit}</div>
+                  <div style={{ marginTop: '4px', fontSize: '9px', fontWeight: 700, color: colors.textTertiary, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+                    {epic.target.unit}
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Attachments */}
+        {/* ── Attachments ── */}
         {epic.attachments && epic.attachments.length > 0 && (
           <section style={{ marginBottom: '32px' }}>
-            <h2 className="section-label" style={{ marginBottom: '16px' }}>Attachments</h2>
+            <TickSectionLabel>Attachments</TickSectionLabel>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
               {epic.attachments.map((attachment) => (
                 <a
@@ -162,12 +278,12 @@ export function EpicDetailPage({
                   href={attachment.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ textDecoration: 'none', display: 'block', padding: '16px', backgroundColor: colors.surface, borderRadius: '8px', border: `1px solid ${colors.border}`, transition: 'all 0.15s ease' }}
+                  style={{ textDecoration: 'none', display: 'block', padding: '16px', backgroundColor: colors.surface, borderRadius: 0, border: `1px solid ${colors.border}` }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = epic.color; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.border; }}
                 >
                   {attachment.type === 'photo' ? (
-                    <div style={{ marginBottom: '12px', height: '140px', borderRadius: '8px', backgroundColor: colors.hover, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    <div style={{ marginBottom: '12px', height: '140px', backgroundColor: colors.hover, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                       <img
                         src={attachment.url}
                         alt={attachment.name}
@@ -184,8 +300,8 @@ export function EpicDetailPage({
                       <Link2 size={28} />
                     </div>
                   )}
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: colors.text, marginBottom: '4px' }}>{attachment.name}</div>
-                  <div style={{ fontSize: '12px', color: colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: colors.text, marginBottom: '4px' }}>{attachment.name}</div>
+                  <div style={{ fontSize: '11px', color: colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {(() => { try { return new URL(attachment.url).hostname; } catch { return attachment.url; } })()}
                   </div>
                 </a>
@@ -194,22 +310,20 @@ export function EpicDetailPage({
           </section>
         )}
 
-        {/* Notes */}
+        {/* ── Notes ── */}
         {epic.notes && (
           <section style={{ marginBottom: '32px' }}>
-            <h2 className="section-label" style={{ marginBottom: '16px' }}>Notes</h2>
-            <div style={{ padding: '20px', backgroundColor: colors.surface, borderRadius: '8px', border: `1px solid ${colors.border}`, fontSize: '15px', color: colors.text, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+            <TickSectionLabel>Notes</TickSectionLabel>
+            <div style={{ padding: '20px 24px', backgroundColor: colors.surface, borderRadius: 0, border: `1px solid ${colors.border}`, fontSize: '14px', color: colors.text, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
               {epic.notes}
             </div>
           </section>
         )}
 
-        {/* Directives */}
+        {/* ── Directives ── */}
         <section>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h2 className="section-label" style={{ margin: 0 }}>Directives</h2>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <TickSectionLabel>Directives</TickSectionLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {epic.directives.map((directive, index) => (
               <DirectiveRow
                 key={directive.id}
@@ -223,7 +337,19 @@ export function EpicDetailPage({
             ))}
             <button
               onClick={() => onAddDirective(epic)}
-              style={{ padding: '16px', backgroundColor: 'transparent', border: `2px dashed ${colors.dashed}`, borderRadius: '8px', color: colors.textTertiary, fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}
+              style={{
+                padding: '12px 14px',
+                backgroundColor: 'transparent',
+                border: `1px dashed ${colors.dashed}`,
+                borderRadius: 0,
+                color: colors.textTertiary,
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                marginTop: '4px',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+              }}
             >
               + Add directive
             </button>

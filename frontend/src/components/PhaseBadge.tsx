@@ -8,12 +8,13 @@ interface PhaseBadgeProps {
 export function PhaseBadge({ phase }: PhaseBadgeProps) {
   const { theme } = useTheme();
 
+  // v2: saturated colors, square, assertive
   const lightConfig: Record<Phase, { bg: string; color: string }> = {
-    exploring: { bg: '#f0ebe4', color: '#8a7f72' },
-    building:  { bg: '#e8efe8', color: '#5c6e5c' },
-    active:    { bg: '#e5f0f0', color: '#4a7171' },
-    refining:  { bg: '#f0e8f0', color: '#6e5c6e' },
-    paused:    { bg: '#f5f3f0', color: '#a09890' },
+    exploring: { bg: '#e9dec7', color: '#6b5a3c' },
+    building:  { bg: '#d6e2c8', color: '#3c5a3c' },
+    active:    { bg: '#cce0e0', color: '#175a5a' },
+    refining:  { bg: '#e0c8e0', color: '#5a3c5a' },
+    paused:    { bg: '#ede9e2', color: '#8a8278' },
   };
 
   const darkConfig: Record<Phase, { bg: string; color: string }> = {
@@ -31,11 +32,11 @@ export function PhaseBadge({ phase }: PhaseBadgeProps) {
       padding: '3px 8px',
       backgroundColor: config.bg,
       color: config.color,
-      borderRadius: '3px',
-      fontSize: '10px',
+      borderRadius: 0,
+      fontSize: '9px',
       fontWeight: 700,
       textTransform: 'uppercase',
-      letterSpacing: '0.06em',
+      letterSpacing: '0.12em',
     }}>
       {phase}
     </span>

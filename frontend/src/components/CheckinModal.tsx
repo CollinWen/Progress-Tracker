@@ -46,12 +46,14 @@ export function CheckinModal({ isOpen, onClose, onSubmit, epics, preselectedEpic
 
   if (!isOpen) return null;
 
+  const backdropBg = theme === 'light' ? 'rgba(22,22,22,0.35)' : 'rgba(0,0,0,0.65)';
+
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '10px 14px',
     backgroundColor: colors.hover,
     border: `1px solid ${colors.border}`,
-    borderRadius: '5px',
+    borderRadius: 0,
     color: colors.text,
     fontSize: '14px',
     fontFamily: 'inherit',
@@ -59,11 +61,11 @@ export function CheckinModal({ isOpen, onClose, onSubmit, epics, preselectedEpic
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, backgroundColor: theme === 'light' ? 'rgba(22,22,22,0.35)' : 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(6px)' }}
+      style={{ position: 'fixed', inset: 0, backgroundColor: backdropBg, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(6px)' }}
       onClick={onClose}
     >
       <div
-        style={{ backgroundColor: colors.surface, borderRadius: '10px', padding: '36px', width: '100%', maxWidth: '640px', boxShadow: theme === 'light' ? '0 8px 40px rgba(0,0,0,0.16)' : '0 8px 40px rgba(0,0,0,0.6)', border: `1px solid ${colors.border}` }}
+        style={{ backgroundColor: colors.surface, borderRadius: 0, padding: '36px', width: '100%', maxWidth: '640px', boxShadow: 'var(--shadow-modal)', border: `1px solid ${colors.border}` }}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-serif" style={{ margin: '0 0 4px', fontSize: '26px', fontWeight: 600, color: colors.text, letterSpacing: '-0.02em' }}>
@@ -110,7 +112,7 @@ export function CheckinModal({ isOpen, onClose, onSubmit, epics, preselectedEpic
                     padding: '12px 10px',
                     backgroundColor: isSel ? colors.text : colors.hover,
                     border: isSel ? `1px solid ${colors.text}` : `1px solid ${colors.border}`,
-                    borderRadius: '5px',
+                    borderRadius: 0,
                     color: isSel ? colors.surface : colors.textSecondary,
                     fontSize: '12px',
                     fontWeight: 500,
@@ -138,13 +140,13 @@ export function CheckinModal({ isOpen, onClose, onSubmit, epics, preselectedEpic
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             onClick={onClose}
-            style={{ flex: 1, padding: '13px', backgroundColor: colors.hover, border: `1px solid ${colors.border}`, borderRadius: '5px', color: colors.textSecondary, fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+            style={{ flex: 1, padding: '13px', backgroundColor: colors.hover, border: `1px solid ${colors.border}`, borderRadius: 0, color: colors.textSecondary, fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
-            style={{ flex: 1, padding: '13px', backgroundColor: colors.text, border: 'none', borderRadius: '5px', color: colors.surface, fontSize: '14px', fontWeight: 600, cursor: 'pointer', letterSpacing: '0.01em' }}
+            style={{ flex: 1, padding: '13px', backgroundColor: colors.text, border: `1px solid ${colors.text}`, borderRadius: 0, color: colors.surface, fontSize: '14px', fontWeight: 600, cursor: 'pointer', letterSpacing: '0.01em' }}
           >
             Log it
           </button>

@@ -19,7 +19,7 @@ export function Header({ user, data, onCheckIn, onSignOut, onCreateEpic }: Heade
   return (
     <header style={{
       padding: '0 40px',
-      height: '56px',
+      height: '52px',
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -29,16 +29,32 @@ export function Header({ user, data, onCheckIn, onSignOut, onCreateEpic }: Heade
       top: 0,
       zIndex: 100,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
-        <img
-          src="/logo.svg"
-          alt="momentum"
-          style={{ height: '20px', display: 'block', cursor: 'pointer' }}
+      {/* Left — wordmark + nav */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+        <div
+          className="font-serif"
           onClick={() => navigate('/')}
-        />
+          style={{
+            fontSize: '18px',
+            fontWeight: 600,
+            letterSpacing: '-0.03em',
+            color: colors.text,
+            cursor: 'pointer',
+            paddingRight: '28px',
+            borderRight: `1px solid ${colors.borderLight}`,
+            marginRight: '4px',
+            lineHeight: '52px',
+          }}
+        >
+          momentum
+        </div>
+
         {user && (
           <nav style={{ display: 'flex', gap: '0' }}>
-            {[{ label: 'Dashboard', path: '/' }, { label: 'All Epics', path: '/epics' }].map(({ label, path }) => {
+            {[
+              { label: 'Dashboard', path: '/' },
+              { label: 'All Epics', path: '/epics' },
+            ].map(({ label, path }) => {
               const isActive = location.pathname === path;
               return (
                 <button
@@ -48,13 +64,14 @@ export function Header({ user, data, onCheckIn, onSignOut, onCreateEpic }: Heade
                     background: 'none',
                     border: 'none',
                     borderBottom: isActive ? `2px solid ${colors.text}` : '2px solid transparent',
-                    padding: '4px 14px',
-                    height: '56px',
-                    fontSize: '13px',
-                    fontWeight: isActive ? 600 : 400,
+                    padding: '0 16px',
+                    height: '52px',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    letterSpacing: '0.14em',
+                    textTransform: 'uppercase',
                     color: isActive ? colors.text : colors.textTertiary,
                     cursor: 'pointer',
-                    letterSpacing: '0.01em',
                   }}
                 >
                   {label}
@@ -65,19 +82,42 @@ export function Header({ user, data, onCheckIn, onSignOut, onCreateEpic }: Heade
         )}
       </div>
 
+      {/* Right — actions + profile */}
       {user && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {onCreateEpic && (
             <button
               onClick={onCreateEpic}
-              style={{ padding: '7px 14px', backgroundColor: 'transparent', border: `1px solid ${colors.border}`, borderRadius: '5px', color: colors.textSecondary, fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
+              style={{
+                padding: '6px 14px',
+                backgroundColor: 'transparent',
+                border: `1px solid ${colors.border}`,
+                borderRadius: 0,
+                color: colors.textSecondary,
+                fontSize: '10px',
+                fontWeight: 700,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
             >
               + Epic
             </button>
           )}
           <button
             onClick={onCheckIn}
-            style={{ padding: '7px 16px', backgroundColor: colors.text, border: 'none', borderRadius: '5px', color: colors.surface, fontSize: '13px', fontWeight: 600, cursor: 'pointer', letterSpacing: '0.01em' }}
+            style={{
+              padding: '6px 16px',
+              backgroundColor: colors.text,
+              border: `1px solid ${colors.text}`,
+              borderRadius: 0,
+              color: colors.surface,
+              fontSize: '10px',
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+            }}
           >
             + Log
           </button>

@@ -47,20 +47,21 @@ export function ProfileMenu({ user, data, onSignOut }: ProfileMenuProps) {
       <button
         onClick={() => setIsOpen(prev => !prev)}
         style={{
-          width: '32px',
-          height: '32px',
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #4a7171 0%, #5c8a6e 100%)',
+          width: '28px',
+          height: '28px',
+          borderRadius: 0,
+          backgroundColor: isOpen ? colors.text : colors.hover,
+          border: `1px solid ${isOpen ? colors.text : colors.border}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#fff',
-          fontSize: '13px',
-          fontWeight: 600,
-          border: isOpen ? `2px solid ${colors.text}` : '2px solid transparent',
+          color: isOpen ? colors.surface : colors.textSecondary,
+          fontSize: '10px',
+          fontWeight: 700,
+          letterSpacing: '0.04em',
           cursor: 'pointer',
           flexShrink: 0,
-          transition: 'border-color 0.15s ease',
+          transition: 'background-color 0.12s ease, color 0.12s ease',
         }}
       >
         {user.name.charAt(0).toUpperCase()}
@@ -70,52 +71,80 @@ export function ProfileMenu({ user, data, onSignOut }: ProfileMenuProps) {
       {isOpen && (
         <div style={{
           position: 'absolute',
-          top: 'calc(100% + 10px)',
+          top: 'calc(100% + 8px)',
           right: 0,
-          width: '240px',
+          width: '248px',
           backgroundColor: colors.surface,
-          borderRadius: '10px',
+          borderRadius: 0,
           border: `1px solid ${colors.border}`,
-          boxShadow: theme === 'light' ? '0 8px 32px rgba(0,0,0,0.12)' : '0 8px 32px rgba(0,0,0,0.50)',
+          boxShadow: theme === 'light' ? '0 8px 40px rgba(0,0,0,0.12)' : '0 8px 40px rgba(0,0,0,0.55)',
           zIndex: 200,
           overflow: 'hidden',
         }}>
-          {/* Profile section */}
-          <div style={{ padding: '16px 18px', borderBottom: `1px solid ${colors.borderLight}` }}>
-            <div style={{ fontWeight: 600, fontSize: '15px', color: colors.text, marginBottom: '2px' }}>{user.name}</div>
-            {user.email && <div style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: '12px' }}>{user.email}</div>}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+
+          {/* ── Profile header ── */}
+          <div style={{ padding: '18px 20px 14px', borderBottom: `1px solid ${colors.borderLight}` }}>
+            {/* Editorial label */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <div style={{ width: '10px', height: '1px', backgroundColor: colors.text }} />
+              <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.18em', color: colors.textTertiary, textTransform: 'uppercase' }}>
+                Account
+              </span>
+              <div style={{ flex: 1, height: '1px', backgroundColor: colors.border }} />
+            </div>
+
+            <div style={{ fontWeight: 600, fontSize: '14px', color: colors.text, marginBottom: '2px' }}>{user.name}</div>
+            {user.email && (
+              <div style={{ fontSize: '11px', color: colors.textTertiary, marginBottom: '14px' }}>{user.email}</div>
+            )}
+
+            {/* Stats grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
               {[
                 { value: totalEpics, label: 'Epics' },
                 { value: totalLogs, label: 'Logs' },
                 { value: activeDays, label: 'Days / mo' },
               ].map(({ value, label }) => (
-                <div key={label} style={{ textAlign: 'center', padding: '8px 4px', backgroundColor: colors.hover, borderRadius: '5px' }}>
-                  <div style={{ fontSize: '18px', fontWeight: 700, color: colors.text, lineHeight: 1 }}>{value}</div>
-                  <div style={{ fontSize: '10px', color: colors.textTertiary, marginTop: '3px' }}>{label}</div>
+                <div key={label} style={{
+                  textAlign: 'center',
+                  padding: '8px 4px',
+                  backgroundColor: colors.hover,
+                  border: `1px solid ${colors.borderLight}`,
+                  borderRadius: 0,
+                }}>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: colors.text, lineHeight: 1, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
+                    {value}
+                  </div>
+                  <div style={{ fontSize: '9px', fontWeight: 700, color: colors.textTertiary, marginTop: '3px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                    {label}
+                  </div>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: '11px', color: colors.inactive, marginTop: '10px' }}>Member since {memberSince}</div>
+
+            <div style={{ fontSize: '10px', color: colors.inactive, marginTop: '10px', letterSpacing: '0.04em' }}>
+              Member since {memberSince}
+            </div>
           </div>
 
-          {/* Menu items */}
-          <div style={{ padding: '8px' }}>
+          {/* ── Menu items ── */}
+          <div style={{ padding: '6px' }}>
             <MenuButton
               onClick={toggleTheme}
-              icon={theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+              icon={theme === 'light' ? <Moon size={13} /> : <Sun size={13} />}
               label={theme === 'light' ? 'Dark mode' : 'Light mode'}
               sublabel={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
             />
             <MenuButton
               onClick={() => { setIsOpen(false); if (data) exportDataAsJson(data); }}
-              icon={<Download size={14} />}
+              icon={<Download size={13} />}
               label="Export data"
               sublabel="Download your logs as JSON"
             />
+            <div style={{ height: '1px', backgroundColor: colors.borderLight, margin: '4px 6px' }} />
             <MenuButton
               onClick={() => { setIsOpen(false); onSignOut(); }}
-              icon={<LogOut size={14} />}
+              icon={<LogOut size={13} />}
               label="Sign out"
               danger
             />
@@ -145,10 +174,10 @@ function MenuButton({ onClick, icon, label, sublabel, danger }: MenuButtonProps)
         display: 'flex',
         alignItems: 'center',
         gap: '10px',
-        padding: '10px 12px',
+        padding: '9px 10px',
         backgroundColor: 'transparent',
         border: 'none',
-        borderRadius: '5px',
+        borderRadius: 0,
         cursor: 'pointer',
         textAlign: 'left',
         color: danger ? colors.danger : colors.text,
@@ -156,10 +185,14 @@ function MenuButton({ onClick, icon, label, sublabel, danger }: MenuButtonProps)
       onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = danger ? colors.dangerBg : colors.hover; }}
       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
     >
-      <span style={{ display: 'flex', alignItems: 'center', width: '20px', flexShrink: 0 }}>{icon}</span>
+      <span style={{ display: 'flex', alignItems: 'center', width: '18px', flexShrink: 0, color: danger ? colors.danger : colors.textTertiary }}>
+        {icon}
+      </span>
       <div>
-        <div style={{ fontSize: '13px', fontWeight: 500 }}>{label}</div>
-        {sublabel && <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '1px' }}>{sublabel}</div>}
+        <div style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.01em' }}>{label}</div>
+        {sublabel && (
+          <div style={{ fontSize: '10px', color: colors.textTertiary, marginTop: '1px' }}>{sublabel}</div>
+        )}
       </div>
     </button>
   );

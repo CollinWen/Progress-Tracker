@@ -10,11 +10,12 @@ if [[ ! -f .env.uat ]]; then
   echo "Error: .env.uat not found. Copy .env.example to .env.uat and fill in values."
   exit 1
 fi
-source .env.uat
+
+# Parse PROJECT_ID from YAML env file
+PROJECT_ID=$(grep 'FIREBASE_PROJECT_ID' .env.uat | cut -d'"' -f2)
 
 # Configuration
 SERVICE_NAME="momentum-api-uat"
-PROJECT_ID="${FIREBASE_PROJECT_ID}"
 REGION="us-central1"
 PLATFORM="managed"
 

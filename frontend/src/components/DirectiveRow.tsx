@@ -16,67 +16,110 @@ function daysSince(isoDate: string | null): number | null {
   return Math.floor((new Date().getTime() - new Date(isoDate).getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function lastCheckinLabel(days: number | null): string {
+  if (days === null) return 'not yet';
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return `${days}d ago`;
+}
+
 export function DirectiveRow({ directive, stats, epicColor, onLog, onEdit, onDelete }: DirectiveRowProps) {
   const { colors } = useTheme();
   const daysSinceLastCheckin = daysSince(stats.lastCheckin);
+  const complete = directive.isComplete;
+  const overdue = stats.isOverdue;
 
-  const rowBg = directive.isComplete
-    ? colors.accentLight
-    : stats.isOverdue
-    ? colors.warningBg
-    : colors.hover;
+  const rowBg = complete ? colors.hover : overdue ? colors.warningBg : colors.surface;
+  const borderColor = complete ? colors.border : overdue ? colors.border : colors.borderLight;
+  const accentBorder = complete ? colors.inactive : overdue ? colors.warning : epicColor;
 
-  const rowBorder = directive.isComplete
-    ? `1px solid ${colors.accent}22`
-    : stats.isOverdue
-    ? `1px solid ${colors.warning}33`
-    : '1px solid transparent';
+  const kindLabel = complete ? 'DONE' : directive.progressType === 'task' ? 'TASK' : 'HABIT';
 
   return (
     <div style={{
-      padding: '14px 16px',
+      padding: '13px 14px',
       backgroundColor: rowBg,
-      borderRadius: '8px',
+      border: `1px solid ${borderColor}`,
+      borderLeft: `2px solid ${accentBorder}`,
+      borderRadius: 0,
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      border: rowBorder,
-      opacity: directive.isComplete ? 0.65 : 1,
+      opacity: complete ? 0.7 : 1,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{ width: '6px', height: '6px', borderRadius: '1px', backgroundColor: directive.isComplete ? colors.accent : epicColor, flexShrink: 0 }} />
-        <div>
-          <div style={{ fontSize: '14px', fontWeight: 500, color: colors.text, marginBottom: '1px', textDecoration: directive.isComplete ? 'line-through' : 'none' }}>
+      {/* Left: kind label + name */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: '9px',
+          fontWeight: 700,
+          color: colors.textTertiary,
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          minWidth: '40px',
+          flexShrink: 0,
+        }}>
+          {kindLabel}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: '14px',
+            fontWeight: 500,
+            color: colors.text,
+            textDecoration: complete ? 'line-through' : 'none',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
             {directive.name}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div style={{ fontSize: '12px', color: colors.textTertiary }}>
-              {directive.progressType === 'task' ? (directive.isComplete ? 'Complete' : 'To-do') : 'Ongoing'}
+          {directive.attachments && directive.attachments.length > 0 && (
+            <div style={{ fontSize: '11px', color: colors.textTertiary, display: 'flex', alignItems: 'center', gap: '3px', marginTop: '2px' }}>
+              <Paperclip size={10} />
+              <span>{directive.attachments.length}</span>
             </div>
-            {directive.attachments && directive.attachments.length > 0 && (
-              <div style={{ fontSize: '11px', color: colors.textTertiary, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                <Paperclip size={10} />
-                <span>{directive.attachments.length}</span>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+      {/* Right: stat + last checkin + actions */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexShrink: 0 }}>
+        {/* Days stat */}
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '20px', fontWeight: 700, color: colors.text, lineHeight: 1, letterSpacing: '-0.03em' }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: colors.text, lineHeight: 1, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
             {stats.daysActive}
           </div>
-          <div style={{ fontSize: '11px', color: colors.textTertiary, letterSpacing: '0.02em' }}>days</div>
+          <div style={{ fontSize: '9px', fontWeight: 700, color: colors.textTertiary, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            Days
+          </div>
         </div>
-        <div style={{ fontSize: '12px', color: stats.isOverdue ? colors.warning : colors.textTertiary, minWidth: '52px', textAlign: 'right' }}>
-          {daysSinceLastCheckin === null ? 'not yet' : daysSinceLastCheckin === 0 ? 'today' : `${daysSinceLastCheckin}d ago`}
+
+        {/* Last checkin */}
+        <div style={{
+          fontSize: '11px',
+          color: overdue ? colors.warning : colors.textTertiary,
+          minWidth: '52px',
+          textAlign: 'right',
+          fontWeight: overdue ? 600 : 400,
+        }}>
+          {lastCheckinLabel(daysSinceLastCheckin)}
         </div>
+
+        {/* Edit / Delete */}
         {onEdit && (
           <button
             onClick={onEdit}
-            style={{ padding: '6px 12px', backgroundColor: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: '5px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: 'transparent',
+              color: colors.textSecondary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: 0,
+              fontSize: '10px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+            }}
           >
             Edit
           </button>
@@ -84,17 +127,43 @@ export function DirectiveRow({ directive, stats, epicColor, onLog, onEdit, onDel
         {onDelete && (
           <button
             onClick={() => { if (confirm(`Delete "${directive.name}"? This cannot be undone.`)) onDelete!(); }}
-            style={{ padding: '6px 12px', backgroundColor: 'transparent', color: colors.danger, border: `1px solid ${colors.dangerBorder}`, borderRadius: '5px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: 'transparent',
+              color: colors.danger,
+              border: `1px solid ${colors.dangerBorder}`,
+              borderRadius: 0,
+              fontSize: '10px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+            }}
           >
             Delete
           </button>
         )}
-        <button
-          onClick={onLog}
-          style={{ padding: '8px 16px', backgroundColor: colors.text, color: colors.surface, border: 'none', borderRadius: '5px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', letterSpacing: '0.01em' }}
-        >
-          Log
-        </button>
+
+        {/* Log button */}
+        {!complete && (
+          <button
+            onClick={onLog}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: colors.text,
+              color: colors.surface,
+              border: `1px solid ${colors.text}`,
+              borderRadius: 0,
+              fontSize: '10px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Log
+          </button>
+        )}
       </div>
     </div>
   );

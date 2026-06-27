@@ -62,7 +62,7 @@ export function DirectiveModal({ directive, onSave, onClose }: DirectiveModalPro
     padding: '10px 14px',
     fontSize: '14px',
     border: `1px solid ${colors.border}`,
-    borderRadius: '5px',
+    borderRadius: 0,
     backgroundColor: colors.hover,
     color: colors.text,
     fontFamily: 'inherit',
@@ -85,7 +85,7 @@ export function DirectiveModal({ directive, onSave, onClose }: DirectiveModalPro
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        style={{ backgroundColor: colors.surface, borderRadius: '10px', maxWidth: '800px', width: '100%', maxHeight: '90vh', overflow: 'auto', padding: '36px', boxShadow: theme === 'light' ? '0 8px 40px rgba(0,0,0,0.16)' : '0 8px 40px rgba(0,0,0,0.6)', border: `1px solid ${colors.border}` }}
+        style={{ backgroundColor: colors.surface, borderRadius: 0, maxWidth: '800px', width: '100%', maxHeight: '90vh', overflow: 'auto', padding: '36px', boxShadow: 'var(--shadow-modal)', border: `1px solid ${colors.border}` }}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-serif" style={{ margin: '0 0 24px', fontSize: '22px', fontWeight: 600, color: colors.text, letterSpacing: '-0.02em' }}>
@@ -114,7 +114,7 @@ export function DirectiveModal({ directive, onSave, onClose }: DirectiveModalPro
                     style={{
                       padding: '10px 12px',
                       border: isSelected ? `1px solid ${colors.accent}` : `1px solid ${colors.border}`,
-                      borderRadius: '5px',
+                      borderRadius: 0,
                       backgroundColor: isSelected ? colors.accentLight : 'transparent',
                       cursor: 'pointer',
                       textAlign: 'left',
@@ -143,7 +143,7 @@ export function DirectiveModal({ directive, onSave, onClose }: DirectiveModalPro
                 style={{
                   padding: '10px 14px',
                   border: progressType === 'task' ? `1px solid ${colors.accent}` : `1px solid ${colors.border}`,
-                  borderRadius: '5px',
+                  borderRadius: 0,
                   backgroundColor: progressType === 'task' ? colors.accentLight : 'transparent',
                   cursor: 'pointer',
                   textAlign: 'left',
@@ -161,7 +161,7 @@ export function DirectiveModal({ directive, onSave, onClose }: DirectiveModalPro
                 style={{
                   padding: '10px 14px',
                   border: progressType === 'ongoing' ? `1px solid ${colors.accent}` : `1px solid ${colors.border}`,
-                  borderRadius: '5px',
+                  borderRadius: 0,
                   backgroundColor: progressType === 'ongoing' ? colors.accentLight : 'transparent',
                   cursor: 'pointer',
                   textAlign: 'left',
@@ -182,14 +182,14 @@ export function DirectiveModal({ directive, onSave, onClose }: DirectiveModalPro
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'flex-end' }}>
               <input type="text" value={attachmentName} onChange={(e) => setAttachmentName(e.target.value)} placeholder="Name (e.g., Tutorial)" style={{ ...inputStyle, flex: 1 }} />
               <input type="url" value={attachmentUrl} onChange={(e) => setAttachmentUrl(e.target.value)} placeholder="URL" style={{ ...inputStyle, flex: 1 }} />
-              <button type="button" onClick={handleAddAttachment} style={{ padding: '10px 18px', fontSize: '13px', fontWeight: 600, border: `1px solid ${colors.border}`, borderRadius: '5px', backgroundColor: colors.hover, color: colors.text, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <button type="button" onClick={handleAddAttachment} style={{ padding: '10px 18px', fontSize: '13px', fontWeight: 600, border: `1px solid ${colors.border}`, borderRadius: 0, backgroundColor: colors.hover, color: colors.text, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 + Add
               </button>
             </div>
             {attachments.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {attachments.map((att) => (
-                  <div key={att.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: colors.hover, borderRadius: '5px', border: `1px solid ${colors.border}` }}>
+                  <div key={att.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: colors.hover, borderRadius: 0, border: `1px solid ${colors.border}` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
                       <Link2 size={14} color={colors.textTertiary} />
                       <div style={{ flex: 1 }}>
@@ -197,7 +197,7 @@ export function DirectiveModal({ directive, onSave, onClose }: DirectiveModalPro
                         <div style={{ fontSize: '11px', color: colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.url}</div>
                       </div>
                     </div>
-                    <button type="button" onClick={() => handleRemoveAttachment(att.id)} style={{ padding: '5px 10px', fontSize: '11px', fontWeight: 600, border: `1px solid ${colors.dangerBorder}`, borderRadius: '4px', backgroundColor: 'transparent', color: colors.danger, cursor: 'pointer' }}>
+                    <button type="button" onClick={() => handleRemoveAttachment(att.id)} style={{ padding: '5px 10px', fontSize: '11px', fontWeight: 600, border: `1px solid ${colors.dangerBorder}`, borderRadius: 0, backgroundColor: 'transparent', color: colors.danger, cursor: 'pointer' }}>
                       Remove
                     </button>
                   </div>
@@ -207,16 +207,16 @@ export function DirectiveModal({ directive, onSave, onClose }: DirectiveModalPro
           </div>
 
           {error && (
-            <div style={{ padding: '10px 14px', background: colors.dangerBg, border: `1px solid ${colors.dangerBorder}`, borderRadius: '5px', color: colors.danger, fontSize: '13px', marginBottom: '18px' }}>
+            <div style={{ padding: '10px 14px', background: colors.dangerBg, border: `1px solid ${colors.dangerBorder}`, borderRadius: 0, color: colors.danger, fontSize: '13px', marginBottom: '18px' }}>
               {error}
             </div>
           )}
 
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-            <button type="button" onClick={onClose} disabled={isSaving} style={{ padding: '11px 22px', fontSize: '14px', fontWeight: 600, border: `1px solid ${colors.border}`, borderRadius: '5px', backgroundColor: 'transparent', color: colors.textSecondary, cursor: isSaving ? 'not-allowed' : 'pointer' }}>
+            <button type="button" onClick={onClose} disabled={isSaving} style={{ padding: '11px 22px', fontSize: '14px', fontWeight: 600, border: `1px solid ${colors.border}`, borderRadius: 0, backgroundColor: 'transparent', color: colors.textSecondary, cursor: isSaving ? 'not-allowed' : 'pointer' }}>
               Cancel
             </button>
-            <button type="submit" disabled={isSaving} style={{ padding: '11px 22px', fontSize: '14px', fontWeight: 600, border: 'none', borderRadius: '5px', backgroundColor: isSaving ? colors.inactive : colors.text, color: colors.surface, cursor: isSaving ? 'not-allowed' : 'pointer', letterSpacing: '0.01em' }}>
+            <button type="submit" disabled={isSaving} style={{ padding: '11px 22px', fontSize: '14px', fontWeight: 600, border: `1px solid ${isSaving ? colors.inactive : colors.text}`, borderRadius: 0, backgroundColor: isSaving ? colors.inactive : colors.text, color: colors.surface, cursor: isSaving ? 'not-allowed' : 'pointer', letterSpacing: '0.01em' }}>
               {isSaving ? 'Saving…' : directive ? 'Save Changes' : 'Create Directive'}
             </button>
           </div>

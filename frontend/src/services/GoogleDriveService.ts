@@ -118,6 +118,12 @@ export class GoogleDriveService implements DataService {
     return this.token !== null && this.fileId !== null && this.user !== null;
   }
 
+  async waitForAuth(): Promise<User | null> {
+    // GoogleDriveService restores session synchronously from sessionStorage in the
+    // constructor, so isAuthenticated() is already accurate by the time this is called.
+    return this.isAuthenticated() ? this.getCurrentUser() : null;
+  }
+
   async signIn(): Promise<User> {
     // Redirect to backend OAuth endpoint
     // Backend will handle the OAuth flow and redirect back with token
@@ -268,5 +274,24 @@ export class GoogleDriveService implements DataService {
     await this.request(`/api/logs/${logId}?file_id=${this.fileId}`, {
       method: 'DELETE',
     });
+  }
+
+  async loadEpics(): Promise<Epic[]> {
+    const data = await this.loadData();
+    return data.epics;
+  }
+
+  async loadLogs(options?: { epicId?: string; days?: number }): Promise<Log[]> {
+    const data = await this.loadData();
+    let logs = data.logs;
+    if (options?.epicId) {
+      logs = logs.filter((l) => l.epicId === options.epicId);
+    }
+    if (options?.days !== undefined) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - options.days);
+      logs = logs.filter((l) => new Date(l.timestamp) >= cutoff);
+    }
+    return logs;
   }
 }

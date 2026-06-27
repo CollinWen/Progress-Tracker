@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Loader2, Flame, Clock, TrendingUp, CalendarCheck, Sparkles, Target, ArrowRight, ChevronUp } from 'lucide-react';
+
+// ── v2 Section Label with tick rule ──────────────────────────────────────────
+function SectionLabel({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+  const { colors } = useTheme();
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+      <div style={{ width: '14px', height: '1px', backgroundColor: colors.text, flexShrink: 0 }} />
+      <span className="section-label" style={{ margin: 0, flexShrink: 0 }}>{children}</span>
+      <div style={{ flex: 1, height: '1px', backgroundColor: colors.border }} />
+      {action && <div style={{ flexShrink: 0 }}>{action}</div>}
+    </div>
+  );
+}
 import { getDataService } from './services';
 import {
   getSuggestedActions,
@@ -29,6 +42,7 @@ function App() {
   const [data, setData] = useState<MomentumData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | undefined>();
+  const [dashboardLogsLoaded, setDashboardLogsLoaded] = useState(false);
 
   // Modals
   const [showCheckinModal, setShowCheckinModal] = useState(false);
@@ -58,6 +72,8 @@ function App() {
     try {
       const logs = await service.loadLogs(options);
       mergeLogs(logs);
+      // Mark dashboard-level logs as loaded (any fetch without a specific epicId).
+      if (!options?.epicId) setDashboardLogsLoaded(true);
     } catch (err) {
       console.error('Failed to load logs:', err);
     }
@@ -92,15 +108,15 @@ function App() {
           return;
         }
 
-        if (service.isAuthenticated()) {
-          const currentUser = service.getCurrentUser();
-          if (currentUser) {
-            setUser(currentUser);
-            setIsAuthenticated(true);
-            // Fetch only epics — show the UI immediately, logs load per-page.
-            const epics = await service.loadEpics();
-            setData({ version: 1, user: currentUser, epics, logs: [] });
-          }
+        // Wait for Firebase to check localStorage for a persisted session.
+        // This resolves immediately if no session exists, or with the user if one does.
+        const currentUser = await service.waitForAuth();
+        if (currentUser) {
+          setUser(currentUser);
+          setIsAuthenticated(true);
+          // Fetch only epics — show the UI immediately, logs load per-page.
+          const epics = await service.loadEpics();
+          setData({ version: 1, user: currentUser, epics, logs: [] });
         }
       } catch (err) {
         console.error('Initialization error:', err);
@@ -359,6 +375,8 @@ function App() {
                 onCreateDirective={handleCreateDirective}
                 onEditDirective={handleEditDirective}
                 onDeleteDirective={handleDeleteDirective}
+                onLoadLogs={handleLoadLogs}
+                dashboardLogsLoaded={dashboardLogsLoaded}
               />
             ) : (
               <Navigate to="/" />
@@ -590,20 +608,17 @@ function MainApp({
 
             {/* ── Suggested Next ── */}
             <section>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <h3 className="section-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Sparkles size={11} />
-                  Suggested Next
-                </h3>
-                {suggestedActions.length > 0 && (
-                  <button
-                    onClick={() => navigate('/epics')}
-                    style={{ background: 'none', border: 'none', padding: 0, fontSize: '13px', color: colors.textTertiary, cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    Show all epics <ArrowRight size={13} />
-                  </button>
-                )}
-              </div>
+              <SectionLabel action={suggestedActions.length > 0 && (
+                <button
+                  onClick={() => navigate('/epics')}
+                  style={{ background: 'none', border: 'none', padding: 0, fontSize: '11px', color: colors.textTertiary, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', letterSpacing: '0.06em', textTransform: 'uppercase' }}
+                >
+                  All epics <ArrowRight size={11} />
+                </button>
+              )}>
+                <Sparkles size={10} style={{ marginRight: '4px' }} />
+                Suggested Next
+              </SectionLabel>
               {suggestedActions.length > 0 ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                   {suggestedActions.slice(0, 4).map((action) => (
@@ -642,28 +657,26 @@ function MainApp({
             {data.epics.length > 0 ? (
               showAllEpics ? (
                 <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                    <h3 className="section-label" style={{ margin: 0 }}>All Epics</h3>
+                  <SectionLabel action={
                     <button
                       onClick={() => setShowAllEpics(false)}
-                      style={{ background: 'none', border: 'none', padding: 0, fontSize: '13px', color: colors.textTertiary, cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}
+                      style={{ background: 'none', border: 'none', padding: 0, fontSize: '11px', color: colors.textTertiary, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', letterSpacing: '0.06em', textTransform: 'uppercase' }}
                     >
-                      <ChevronUp size={13} /> Collapse
+                      <ChevronUp size={11} /> Collapse
                     </button>
-                  </div>
+                  }>All Epics</SectionLabel>
                   {epicsList}
                 </>
               ) : (
                 <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                    <h3 className="section-label" style={{ margin: 0 }}>Epics</h3>
+                  <SectionLabel action={
                     <button
                       onClick={() => setShowAllEpics(true)}
-                      style={{ background: 'none', border: 'none', padding: 0, fontSize: '13px', color: colors.textTertiary, cursor: 'pointer', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}
+                      style={{ background: 'none', border: 'none', padding: 0, fontSize: '11px', color: colors.textTertiary, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', letterSpacing: '0.06em', textTransform: 'uppercase' }}
                     >
-                      Show all <ArrowRight size={13} />
+                      Show all <ArrowRight size={11} />
                     </button>
-                  </div>
+                  }>Epics</SectionLabel>
                   {epicsList}
                 </>
               )
@@ -676,7 +689,7 @@ function MainApp({
                 </div>
                 <button
                   onClick={onCreateEpic}
-                  style={{ padding: '12px 24px', backgroundColor: colors.text, border: 'none', borderRadius: '5px', color: colors.surface, fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+                  style={{ padding: '12px 24px', backgroundColor: colors.text, border: `1px solid ${colors.text}`, borderRadius: 0, color: colors.surface, fontSize: '10px', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.14em', textTransform: 'uppercase' }}
                 >
                   + Create Epic
                 </button>
@@ -707,7 +720,7 @@ function StatChip({ icon, value, label, highlight = false }: StatChipProps) {
       padding: '8px 14px',
       backgroundColor: highlight ? colors.accentLight : colors.surface,
       border: `1px solid ${highlight ? colors.accent + '33' : colors.border}`,
-      borderRadius: '5px',
+      borderRadius: 0,
       whiteSpace: 'nowrap',
     }}>
       <span style={{ color: highlight ? colors.accent : colors.textTertiary, display: 'flex', alignItems: 'center' }}>{icon}</span>
@@ -740,8 +753,8 @@ function RecentLogFeed({ data }: { data: MomentumData }) {
   if (recentLogs.length === 0) return null;
 
   return (
-    <div style={{ backgroundColor: colors.surface, borderRadius: '20px', border: `1px solid ${colors.border}`, padding: '24px 28px' }}>
-      <div className="section-label" style={{ marginBottom: '16px' }}>Recent Activity</div>
+    <div style={{ backgroundColor: colors.surface, borderRadius: 0, border: `1px solid ${colors.border}`, padding: '24px 28px' }}>
+      <SectionLabel>Recent Activity</SectionLabel>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {recentLogs.map((log, i) => {
           const epic = data.epics.find(e => e.id === log.epicId);
@@ -759,7 +772,7 @@ function RecentLogFeed({ data }: { data: MomentumData }) {
               alignItems: 'flex-start',
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, paddingTop: '2px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: epic.color, flexShrink: 0 }} />
+                <div style={{ width: '8px', height: '8px', borderRadius: 0, backgroundColor: epic.color, flexShrink: 0 }} />
                 {!isLast && <div style={{ width: '1px', flex: 1, backgroundColor: colors.graphEmpty, marginTop: '4px' }} />}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>

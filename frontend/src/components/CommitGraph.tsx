@@ -2,11 +2,12 @@ import { useTheme } from '../contexts/ThemeContext';
 
 interface CommitGraphProps {
   history: number[];
-  color?: string;
+  color?: string | undefined;
 }
 
-export function CommitGraph({ history, color = '#2d2d2d' }: CommitGraphProps) {
+export function CommitGraph({ history, color }: CommitGraphProps) {
   const { colors } = useTheme();
+  const fillColor = color ?? colors.text;
   const weeks: number[][] = [];
 
   for (let i = 0; i < history.length; i += 7) {
@@ -23,8 +24,8 @@ export function CommitGraph({ history, color = '#2d2d2d' }: CommitGraphProps) {
               style={{
                 width: '7px',
                 height: '7px',
-                borderRadius: '2px',
-                backgroundColor: day ? color : colors.graphEmpty,
+                borderRadius: 0,
+                backgroundColor: day ? fillColor : colors.graphEmpty,
                 opacity: day ? 0.25 + 0.75 * ((wi * 7 + di) / history.length) : 1,
               }}
             />

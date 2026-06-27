@@ -76,13 +76,13 @@ export function EpicModal({ epic, onSave, onClose }: EpicModalProps) {
     }
   };
 
-  const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', fontSize: '14px', border: `1px solid ${colors.border}`, borderRadius: '5px', fontFamily: 'inherit', backgroundColor: colors.hover, color: colors.text, boxSizing: 'border-box' };
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', fontSize: '14px', border: `1px solid ${colors.border}`, borderRadius: 0, fontFamily: 'inherit', backgroundColor: colors.hover, color: colors.text, boxSizing: 'border-box' };
   const labelStyle: React.CSSProperties = { display: 'block', fontSize: '10px', fontWeight: 700, color: colors.textTertiary, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '6px' };
 
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: theme === 'light' ? 'rgba(22,22,22,0.35)' : 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px', backdropFilter: 'blur(6px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ backgroundColor: colors.surface, borderRadius: '10px', maxWidth: '860px', width: '100%', maxHeight: '90vh', overflow: 'auto', padding: '36px', boxShadow: theme === 'light' ? '0 8px 40px rgba(0,0,0,0.16)' : '0 8px 40px rgba(0,0,0,0.6)', border: `1px solid ${colors.border}` }}
+      <div style={{ backgroundColor: colors.surface, borderRadius: 0, maxWidth: '860px', width: '100%', maxHeight: '90vh', overflow: 'auto', padding: '36px', boxShadow: 'var(--shadow-modal)', border: `1px solid ${colors.border}` }}
         onClick={(e) => e.stopPropagation()}>
         <h2 className="font-serif" style={{ margin: '0 0 24px', fontSize: '22px', fontWeight: 600, color: colors.text, letterSpacing: '-0.02em' }}>
           {epic ? 'Edit Epic' : 'Create New Epic'}
@@ -93,11 +93,11 @@ export function EpicModal({ epic, onSave, onClose }: EpicModalProps) {
           <div style={{ display: 'flex', gap: '14px', marginBottom: '18px', alignItems: 'flex-end' }}>
             <div style={{ flex: '0 0 auto' }}>
               <label style={labelStyle}>Color</label>
-              <div style={{ width: '44px', height: '44px', borderRadius: '5px', backgroundColor: color, marginBottom: '6px', border: `1px solid ${colors.border}` }} />
+              <div style={{ width: '44px', height: '44px', borderRadius: 0, backgroundColor: color, marginBottom: '6px', border: `1px solid ${colors.border}` }} />
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '3px', width: '100px' }}>
                 {PRESET_COLORS.map((c) => (
                   <button key={c} type="button" onClick={() => setColor(c)}
-                    style={{ width: '22px', height: '22px', borderRadius: '3px', backgroundColor: c, border: color === c ? `2px solid ${colors.text}` : '2px solid transparent', cursor: 'pointer', padding: 0 }} />
+                    style={{ width: '22px', height: '22px', borderRadius: 0, backgroundColor: c, border: color === c ? `2px solid ${colors.text}` : '2px solid transparent', cursor: 'pointer', padding: 0 }} />
                 ))}
               </div>
             </div>
@@ -119,7 +119,7 @@ export function EpicModal({ epic, onSave, onClose }: EpicModalProps) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
               {CHECKIN_INTERVALS.map((interval) => (
                 <button key={interval.value} type="button" onClick={() => setCheckinInterval(interval.value)}
-                  style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'left', border: checkinInterval === interval.value ? `1px solid ${colors.accent}` : `1px solid ${colors.border}`, borderRadius: '5px', backgroundColor: checkinInterval === interval.value ? colors.accentLight : 'transparent', color: checkinInterval === interval.value ? colors.accent : colors.textSecondary, cursor: 'pointer' }}>
+                  style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'left', border: checkinInterval === interval.value ? `1px solid ${colors.accent}` : `1px solid ${colors.border}`, borderRadius: 0, backgroundColor: checkinInterval === interval.value ? colors.accentLight : 'transparent', color: checkinInterval === interval.value ? colors.accent : colors.textSecondary, cursor: 'pointer' }}>
                   <div style={{ fontWeight: 700, marginBottom: '1px', fontSize: '12px' }}>{interval.label}</div>
                   <div style={{ fontSize: '10px', opacity: 0.7 }}>{interval.description}</div>
                 </button>
@@ -130,7 +130,7 @@ export function EpicModal({ epic, onSave, onClose }: EpicModalProps) {
           {/* Deadline */}
           <div style={{ marginBottom: '18px' }}>
             <label style={labelStyle}>Deadline (optional)</label>
-            <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={{ padding: '10px 14px', fontSize: '14px', border: `1px solid ${colors.border}`, borderRadius: '5px', backgroundColor: colors.hover, color: colors.text }} />
+            <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={{ padding: '10px 14px', fontSize: '14px', border: `1px solid ${colors.border}`, borderRadius: 0, backgroundColor: colors.hover, color: colors.text }} />
           </div>
 
           {/* Target */}
@@ -141,10 +141,10 @@ export function EpicModal({ epic, onSave, onClose }: EpicModalProps) {
             </label>
             {hasTarget && (
               <div style={{ display: 'flex', gap: '10px' }}>
-                <input type="number" value={targetCurrent} onChange={(e) => setTargetCurrent(e.target.value)} placeholder="Current" min="0" style={{ width: '85px', padding: '10px 14px', fontSize: '14px', border: `1px solid ${colors.border}`, borderRadius: '5px', backgroundColor: colors.hover, color: colors.text }} />
+                <input type="number" value={targetCurrent} onChange={(e) => setTargetCurrent(e.target.value)} placeholder="Current" min="0" style={{ width: '85px', padding: '10px 14px', fontSize: '14px', border: `1px solid ${colors.border}`, borderRadius: 0, backgroundColor: colors.hover, color: colors.text }} />
                 <span style={{ display: 'flex', alignItems: 'center', color: colors.textTertiary, fontWeight: 700 }}>/</span>
-                <input type="number" value={targetTotal} onChange={(e) => setTargetTotal(e.target.value)} placeholder="Total" min="1" required={hasTarget} style={{ width: '85px', padding: '10px 14px', fontSize: '14px', border: `1px solid ${colors.border}`, borderRadius: '5px', backgroundColor: colors.hover, color: colors.text }} />
-                <input type="text" value={targetUnit} onChange={(e) => setTargetUnit(e.target.value)} placeholder="unit (e.g., races)" style={{ flex: 1, padding: '10px 14px', fontSize: '14px', border: `1px solid ${colors.border}`, borderRadius: '5px', backgroundColor: colors.hover, color: colors.text }} />
+                <input type="number" value={targetTotal} onChange={(e) => setTargetTotal(e.target.value)} placeholder="Total" min="1" required={hasTarget} style={{ width: '85px', padding: '10px 14px', fontSize: '14px', border: `1px solid ${colors.border}`, borderRadius: 0, backgroundColor: colors.hover, color: colors.text }} />
+                <input type="text" value={targetUnit} onChange={(e) => setTargetUnit(e.target.value)} placeholder="unit (e.g., races)" style={{ flex: 1, padding: '10px 14px', fontSize: '14px', border: `1px solid ${colors.border}`, borderRadius: 0, backgroundColor: colors.hover, color: colors.text }} />
               </div>
             )}
           </div>
@@ -154,12 +154,12 @@ export function EpicModal({ epic, onSave, onClose }: EpicModalProps) {
             <label style={labelStyle}>Tags (optional)</label>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
               <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }} placeholder="e.g., work, health" style={{ ...inputStyle, flex: 1 }} />
-              <button type="button" onClick={addTag} style={{ padding: '10px 18px', fontSize: '13px', fontWeight: 600, border: `1px solid ${colors.border}`, borderRadius: '5px', backgroundColor: colors.hover, color: colors.text, cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Add</button>
+              <button type="button" onClick={addTag} style={{ padding: '10px 18px', fontSize: '13px', fontWeight: 600, border: `1px solid ${colors.border}`, borderRadius: 0, backgroundColor: colors.hover, color: colors.text, cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Add</button>
             </div>
             {tags.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {tags.map((tag) => (
-                  <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', backgroundColor: colors.tagBg, borderRadius: '3px', fontSize: '12px', color: colors.textSecondary }}>
+                  <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', backgroundColor: colors.tagBg, borderRadius: 0, fontSize: '12px', color: colors.textSecondary }}>
                     <span>{tag}</span>
                     <button type="button" onClick={() => setTags(tags.filter(t => t !== tag))} style={{ background: 'none', border: 'none', color: colors.textTertiary, cursor: 'pointer', fontSize: '15px', lineHeight: 1, padding: 0 }}>×</button>
                   </div>
@@ -177,17 +177,17 @@ export function EpicModal({ epic, onSave, onClose }: EpicModalProps) {
                 <input type="url" value={attachmentUrl} onChange={(e) => setAttachmentUrl(e.target.value)} placeholder="URL" style={inputStyle} />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <select value={attachmentType} onChange={(e) => setAttachmentType(e.target.value as 'link' | 'photo')} style={{ padding: '10px 14px', fontSize: '13px', border: `1px solid ${colors.border}`, borderRadius: '5px', backgroundColor: colors.surface, color: colors.text }}>
+                <select value={attachmentType} onChange={(e) => setAttachmentType(e.target.value as 'link' | 'photo')} style={{ padding: '10px 14px', fontSize: '13px', border: `1px solid ${colors.border}`, borderRadius: 0, backgroundColor: colors.surface, color: colors.text }}>
                   <option value="link">Link</option>
                   <option value="photo">Photo</option>
                 </select>
-                <button type="button" onClick={addAttachment} style={{ padding: '10px 18px', fontSize: '13px', fontWeight: 600, border: `1px solid ${colors.border}`, borderRadius: '5px', backgroundColor: colors.hover, color: colors.text, cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Add</button>
+                <button type="button" onClick={addAttachment} style={{ padding: '10px 18px', fontSize: '13px', fontWeight: 600, border: `1px solid ${colors.border}`, borderRadius: 0, backgroundColor: colors.hover, color: colors.text, cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Add</button>
               </div>
             </div>
             {attachments.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {attachments.map((att) => (
-                  <div key={att.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: colors.hover, borderRadius: '5px', border: `1px solid ${colors.border}` }}>
+                  <div key={att.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: colors.hover, borderRadius: 0, border: `1px solid ${colors.border}` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
                       <span style={{ color: colors.textTertiary, display: 'flex' }}>
                         {att.type === 'photo' ? <Image size={14} /> : <Link2 size={14} />}
@@ -197,7 +197,7 @@ export function EpicModal({ epic, onSave, onClose }: EpicModalProps) {
                         <div style={{ fontSize: '11px', color: colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.url}</div>
                       </div>
                     </div>
-                    <button type="button" onClick={() => setAttachments(attachments.filter(a => a.id !== att.id))} style={{ padding: '5px 10px', fontSize: '11px', fontWeight: 600, border: `1px solid ${colors.dangerBorder}`, borderRadius: '4px', backgroundColor: 'transparent', color: colors.danger, cursor: 'pointer' }}>Remove</button>
+                    <button type="button" onClick={() => setAttachments(attachments.filter(a => a.id !== att.id))} style={{ padding: '5px 10px', fontSize: '11px', fontWeight: 600, border: `1px solid ${colors.dangerBorder}`, borderRadius: 0, backgroundColor: 'transparent', color: colors.danger, cursor: 'pointer' }}>Remove</button>
                   </div>
                 ))}
               </div>
@@ -211,12 +211,12 @@ export function EpicModal({ epic, onSave, onClose }: EpicModalProps) {
           </div>
 
           {error && (
-            <div style={{ padding: '10px 14px', background: colors.dangerBg, border: `1px solid ${colors.dangerBorder}`, borderRadius: '5px', color: colors.danger, fontSize: '13px', marginBottom: '18px' }}>{error}</div>
+            <div style={{ padding: '10px 14px', background: colors.dangerBg, border: `1px solid ${colors.dangerBorder}`, borderRadius: 0, color: colors.danger, fontSize: '13px', marginBottom: '18px' }}>{error}</div>
           )}
 
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-            <button type="button" onClick={onClose} disabled={isSaving} style={{ padding: '11px 22px', fontSize: '14px', fontWeight: 600, border: `1px solid ${colors.border}`, borderRadius: '5px', backgroundColor: 'transparent', color: colors.textSecondary, cursor: isSaving ? 'not-allowed' : 'pointer' }}>Cancel</button>
-            <button type="submit" disabled={isSaving} style={{ padding: '11px 22px', fontSize: '14px', fontWeight: 600, border: 'none', borderRadius: '5px', backgroundColor: isSaving ? colors.inactive : colors.text, color: colors.surface, cursor: isSaving ? 'not-allowed' : 'pointer', letterSpacing: '0.01em' }}>
+            <button type="button" onClick={onClose} disabled={isSaving} style={{ padding: '11px 22px', fontSize: '14px', fontWeight: 600, border: `1px solid ${colors.border}`, borderRadius: 0, backgroundColor: 'transparent', color: colors.textSecondary, cursor: isSaving ? 'not-allowed' : 'pointer' }}>Cancel</button>
+            <button type="submit" disabled={isSaving} style={{ padding: '11px 22px', fontSize: '14px', fontWeight: 600, border: `1px solid ${isSaving ? colors.inactive : colors.text}`, borderRadius: 0, backgroundColor: isSaving ? colors.inactive : colors.text, color: colors.surface, cursor: isSaving ? 'not-allowed' : 'pointer', letterSpacing: '0.01em' }}>
               {isSaving ? 'Saving…' : epic ? 'Save Changes' : 'Create Epic'}
             </button>
           </div>

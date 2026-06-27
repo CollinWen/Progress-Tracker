@@ -103,6 +103,7 @@ export function DraggableEpicList({
             onAddDirective={() => onAddDirective(epic.id)}
             onEditDirective={(directive) => onEditDirective(epic.id, directive)}
             onDeleteDirective={(directiveId) => onDeleteDirective(epic.id, directiveId)}
+            epicIndex={index}
           />
         </div>
       ))}

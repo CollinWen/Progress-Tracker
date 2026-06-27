@@ -1,4 +1,3 @@
-import { ArrowRight } from 'lucide-react';
 import type { SuggestedAction as SuggestedActionType } from '../lib/types';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -23,57 +22,73 @@ function lastCheckinLabel(isoDate: string | null): string {
 export function SuggestedAction({ action, onCheckIn }: SuggestedActionCardProps) {
   const { colors } = useTheme();
   const { directive, epic, reason, stats } = action;
-
-  const badge = reason === 'neglected'
-    ? { bg: colors.warningBg, color: colors.warning, label: 'needs attention' }
-    : { bg: colors.accentLight, color: colors.accent, label: 'on fire' };
+  const onFire = reason !== 'neglected';
 
   return (
     <div style={{
       backgroundColor: colors.surface,
-      borderRadius: '8px',
+      borderRadius: 0,
       border: `1px solid ${colors.border}`,
-      padding: '18px 20px',
+      borderTop: `2px solid ${epic.color}`,
+      padding: '20px 22px',
       display: 'flex',
       flexDirection: 'column',
+      gap: '14px',
       height: '100%',
     }}>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '14px' }}>
-        {/* Sharp color swatch */}
-        <div style={{ width: '32px', height: '32px', borderRadius: '4px', backgroundColor: epic.color, flexShrink: 0 }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '14px', fontWeight: 600, color: colors.text, lineHeight: 1.3 }}>{directive.name}</span>
-            <span style={{ padding: '2px 7px', backgroundColor: badge.bg, color: badge.color, borderRadius: '3px', fontSize: '10px', fontWeight: 700, flexShrink: 0, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-              {badge.label}
-            </span>
-          </div>
-          <div style={{ fontSize: '12px', color: colors.textTertiary }}>
-            {epic.name} · {stats.daysActive}d · {lastCheckinLabel(stats.lastCheckin)}
-          </div>
+      {/* Status badge + rule */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{
+          fontSize: '9px',
+          fontWeight: 700,
+          color: onFire ? colors.accent : colors.warning,
+          letterSpacing: '0.2em',
+          textTransform: 'uppercase',
+        }}>
+          {onFire ? '◆ On fire' : '◇ Needs attention'}
+        </span>
+        <div style={{ flex: 1, height: '1px', backgroundColor: colors.borderLight }} />
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1 }}>
+        <div className="font-serif" style={{
+          fontSize: '18px',
+          fontWeight: 600,
+          color: colors.text,
+          letterSpacing: '-0.02em',
+          lineHeight: 1.2,
+          marginBottom: '5px',
+        }}>
+          {directive.name}
+        </div>
+        <div style={{ fontSize: '11px', color: colors.textTertiary, letterSpacing: '0.04em' }}>
+          {epic.name} · {stats.daysActive}d · {lastCheckinLabel(stats.lastCheckin)}
         </div>
       </div>
 
+      {/* Log button — square, uppercase, space-between */}
       <button
         onClick={onCheckIn}
         style={{
           width: '100%',
-          padding: '11px',
+          padding: '10px 14px',
           backgroundColor: colors.text,
           color: colors.surface,
-          border: 'none',
-          borderRadius: '5px',
-          fontSize: '13px',
-          fontWeight: 600,
+          border: `1px solid ${colors.text}`,
+          borderRadius: 0,
+          fontSize: '10px',
+          fontWeight: 700,
           cursor: 'pointer',
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          gap: '5px',
-          letterSpacing: '0.01em',
+          justifyContent: 'space-between',
         }}
       >
-        Log progress <ArrowRight size={13} />
+        <span>Log progress</span>
+        <span>→</span>
       </button>
     </div>
   );

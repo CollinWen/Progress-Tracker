@@ -3,6 +3,8 @@ import type { DataService } from './DataService';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import {
   getAuth,
+  setPersistence,
+  browserLocalPersistence,
   signInWithPopup,
   GoogleAuthProvider,
   Auth,
@@ -25,8 +27,12 @@ export class FirestoreService implements DataService {
   private auth: Auth | null = null;
   private currentUser: User | null = null;
   private firebaseUser: FirebaseUser | null = null;
+  // Resolves once Firebase has determined the initial auth state (persisted or not).
+  private authReady: Promise<User | null>;
+  private resolveAuthReady!: (user: User | null) => void;
 
   constructor() {
+    this.authReady = new Promise((resolve) => { this.resolveAuthReady = resolve; });
     this.initializeFirebase();
     this.restoreSession();
   }
@@ -49,15 +55,22 @@ export class FirestoreService implements DataService {
 
     this.app = initializeApp(config);
     this.auth = getAuth(this.app);
+    // Explicitly persist the session in localStorage so it survives page refreshes.
+    setPersistence(this.auth, browserLocalPersistence).catch(console.error);
   }
 
   /**
-   * Restore session from Firebase Auth state.
+   * Subscribe to Firebase auth state changes.
+   * The first callback resolves authReady so waitForAuth() can return.
    */
   private restoreSession(): void {
-    if (!this.auth) return;
+    if (!this.auth) {
+      this.resolveAuthReady(null);
+      return;
+    }
 
-    // Listen for auth state changes
+    let initialStateResolved = false;
+
     this.auth.onAuthStateChanged((firebaseUser) => {
       if (firebaseUser) {
         this.firebaseUser = firebaseUser;
@@ -71,7 +84,22 @@ export class FirestoreService implements DataService {
         this.firebaseUser = null;
         this.currentUser = null;
       }
+
+      // Resolve the promise on the first callback — this is when Firebase has
+      // finished checking localStorage for a persisted session.
+      if (!initialStateResolved) {
+        initialStateResolved = true;
+        this.resolveAuthReady(this.currentUser);
+      }
     });
+  }
+
+  /**
+   * Wait for Firebase to determine the initial auth state.
+   * Returns the persisted user, or null if not logged in.
+   */
+  async waitForAuth(): Promise<User | null> {
+    return this.authReady;
   }
 
   /**

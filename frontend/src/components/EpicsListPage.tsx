@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ArrowLeft } from 'lucide-react';
 import type { Epic, Directive, User } from '../lib/types';
@@ -19,6 +19,8 @@ interface EpicsListPageProps {
   onCreateDirective: (epic: Epic) => void;
   onEditDirective: (epic: Epic, directive: Directive) => void;
   onDeleteDirective: (epicId: string, directiveId: string) => void;
+  onLoadLogs: (options?: { epicId?: string; days?: number }) => Promise<void>;
+  dashboardLogsLoaded: boolean;
 }
 
 export function EpicsListPage({
@@ -33,11 +35,18 @@ export function EpicsListPage({
   onCreateDirective,
   onEditDirective,
   onDeleteDirective,
+  onLoadLogs,
+  dashboardLogsLoaded,
 }: EpicsListPageProps) {
   const navigate = useNavigate();
   const { colors } = useTheme();
   const [expandedEpics, setExpandedEpics] = useState<Set<string>>(new Set());
   const [filterTag, setFilterTag] = useState<string | null>(null);
+
+  // If navigated to directly (logs not yet fetched), fetch dashboard-level logs.
+  useEffect(() => {
+    if (!dashboardLogsLoaded) onLoadLogs({ days: 90 });
+  }, []);
 
   const handleToggleExpanded = (epicId: string) => {
     const newExpanded = new Set(expandedEpics);
@@ -64,9 +73,9 @@ export function EpicsListPage({
             </h1>
             <button
               onClick={() => navigate('/')}
-              style={{ padding: '10px 18px', backgroundColor: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: '5px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{ padding: '8px 16px', backgroundColor: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: 0, fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              <ArrowLeft size={14} /> Dashboard
+              <ArrowLeft size={12} /> Dashboard
             </button>
           </div>
 
@@ -76,7 +85,7 @@ export function EpicsListPage({
               <span style={{ fontSize: '13px', color: colors.textTertiary, fontWeight: 500 }}>Filter by tag:</span>
               <button
                 onClick={() => setFilterTag(null)}
-                style={{ padding: '6px 12px', backgroundColor: filterTag === null ? colors.text : 'transparent', color: filterTag === null ? colors.surface : colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: '5px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}
+                style={{ padding: '5px 12px', backgroundColor: filterTag === null ? colors.text : 'transparent', color: filterTag === null ? colors.surface : colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: 0, fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
               >
                 All ({data.epics.length})
               </button>
@@ -84,7 +93,7 @@ export function EpicsListPage({
                 <button
                   key={tag}
                   onClick={() => setFilterTag(tag)}
-                  style={{ padding: '6px 12px', backgroundColor: filterTag === tag ? colors.text : 'transparent', color: filterTag === tag ? colors.surface : colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: '5px', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}
+                  style={{ padding: '5px 12px', backgroundColor: filterTag === tag ? colors.text : 'transparent', color: filterTag === tag ? colors.surface : colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: 0, fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
                 >
                   {tag} ({data.epics.filter((e) => e.tags?.includes(tag)).length})
                 </button>
@@ -123,7 +132,7 @@ export function EpicsListPage({
             {filterTag && (
               <button
                 onClick={() => setFilterTag(null)}
-                style={{ padding: '11px 22px', backgroundColor: colors.text, border: 'none', borderRadius: '5px', color: colors.surface, fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+                style={{ padding: '10px 20px', backgroundColor: colors.text, border: `1px solid ${colors.text}`, borderRadius: 0, color: colors.surface, fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}
               >
                 Clear Filter
               </button>

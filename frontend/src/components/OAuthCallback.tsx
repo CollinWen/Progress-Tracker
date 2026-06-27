@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../contexts/ThemeContext';
 
 /**
  * OAuth Callback component
@@ -7,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
  */
 export function OAuthCallback() {
   const navigate = useNavigate();
+  const { colors } = useTheme();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -108,27 +110,20 @@ export function OAuthCallback() {
       alignItems: 'center',
       justifyContent: 'center',
       height: '100vh',
-      fontFamily: 'system-ui, sans-serif',
-      color: '#2d2d2d',
-      backgroundColor: '#f7f5f2'
+      color: colors.text,
+      backgroundColor: colors.background,
     }}>
       <div style={{ textAlign: 'center' }}>
         {error ? (
           <>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>❌</div>
-            <div style={{ fontSize: '16px', marginBottom: '8px' }}>Authentication failed</div>
-            <div style={{ fontSize: '14px', color: '#7a756e' }}>{error}</div>
-            <div style={{ fontSize: '14px', color: '#7a756e', marginTop: '8px' }}>
-              Redirecting to home...
-            </div>
+            <div style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: colors.danger, marginBottom: '12px' }}>Authentication failed</div>
+            <div style={{ fontSize: '13px', color: colors.textTertiary, marginBottom: '8px' }}>{error}</div>
+            <div style={{ fontSize: '13px', color: colors.inactive }}>Redirecting to home…</div>
           </>
         ) : (
           <>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-            <div style={{ fontSize: '16px' }}>Completing sign-in...</div>
-            <div style={{ fontSize: '14px', color: '#7a756e', marginTop: '8px' }}>
-              Please wait...
-            </div>
+            <div style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: colors.text, marginBottom: '12px' }}>Completing sign-in</div>
+            <div style={{ fontSize: '13px', color: colors.inactive }}>Please wait…</div>
           </>
         )}
       </div>

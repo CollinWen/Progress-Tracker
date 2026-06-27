@@ -7,6 +7,7 @@ import type { MomentumData, Epic, Directive, Log, User } from '../lib/types';
 export interface DataService {
   // Authentication
   isAuthenticated(): boolean;
+  waitForAuth(): Promise<User | null>;
   signIn(): Promise<User>;
   signOut(): Promise<void>;
   getCurrentUser(): User | null;
