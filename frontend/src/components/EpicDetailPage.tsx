@@ -6,6 +6,7 @@ import { computeDirectiveStats, computeEpicStats } from '../lib/computeDerivedDa
 import { PhaseBadge } from './PhaseBadge';
 import { CommitGraph } from './CommitGraph';
 import { DirectiveRow } from './DirectiveRow';
+import { AgentPanel } from './AgentPanel';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface EpicDetailPageProps {
@@ -355,6 +356,11 @@ export function EpicDetailPage({
             </button>
           </div>
         </section>
+
+        {/* ── Agent: schedule + run history ── */}
+        <div style={{ marginTop: '32px' }}>
+          <AgentPanel epic={epic} />
+        </div>
       </div>
     </div>
   );

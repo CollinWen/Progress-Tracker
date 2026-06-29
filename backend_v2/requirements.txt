@@ -17,3 +17,6 @@ python-multipart==0.0.6
 
 # Python 3.11+ compatibility
 typing-extensions==4.9.0
+
+# MCP server (agent-facing contract) — see mcp_server/
+mcp>=1.2.0

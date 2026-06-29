@@ -1,4 +1,4 @@
-import type { MomentumData, Epic, Directive, Log, User } from '../lib/types';
+import type { MomentumData, Epic, Directive, Log, User, SkillCatalogItem, Run } from '../lib/types';
 import { generateSeedData } from '../lib/computeDerivedData';
 import type { DataService } from './DataService';
 
@@ -197,6 +197,15 @@ export class LocalStorageService implements DataService {
 
     this.data!.logs = this.data!.logs.filter((log) => log.id !== logId);
     await this.saveData(this.data!);
+  }
+
+  // Agent operations — demo mode has no backend orchestrator, so these are static.
+  async listSkills(): Promise<SkillCatalogItem[]> {
+    return [];
+  }
+
+  async listRuns(_options?: { epicId?: string; limit?: number }): Promise<Run[]> {
+    return [];
   }
 
   async loadEpics(): Promise<Epic[]> {

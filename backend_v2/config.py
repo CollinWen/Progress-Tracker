@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expiration_days: int = 7
 
+    # Agent orchestrator (MCP) authentication.
+    # The local orchestrator authenticates to the mounted /mcp endpoint with a static
+    # bearer token; on success it operates as a single configured user. See mcp_server/.
+    orchestrator_token: str = os.getenv("ORCHESTRATOR_TOKEN", "")
+    orchestrator_user_id: str = os.getenv("ORCHESTRATOR_USER_ID", "")
+
     class Config:
         env_file = ".env"
         case_sensitive = False

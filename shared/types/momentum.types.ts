@@ -15,6 +15,84 @@ export type SessionType = 'quick' | 'blocked' | 'deep';
 
 export type DirectiveProgressType = 'task' | 'ongoing'; // task = incomplete/complete, ongoing = inactive/active
 
+// ── Agent orchestrator types (additive; consumed by the autonomous orchestrator) ──
+export type AgentSkill = 'research' | 'code' | 'email' | 'schedule' | 'logistics' | 'brainstorm';
+export type AgentStatus = 'queued' | 'running' | 'done' | 'failed' | 'needs_review';
+export type CreatedBy = 'user' | 'agent';
+
+export interface AgentMeta {
+  skill: AgentSkill;
+  brief: string;
+  status: AgentStatus;
+  createdBy: CreatedBy;
+  result?: unknown | null;
+  resultRef?: string | null;
+  error?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface EpicResources {
+  mcps: string[];
+  skills: string[];
+  contextUrls: string[];
+}
+
+export interface AgentLogEntry {
+  timestamp: string;
+  directiveId: string;
+  skill: string;
+  summary: string;
+  resultRef?: string | null;
+}
+
+export interface EpicSchedule {
+  enabled: boolean;
+  cron: string;
+  timezone: string;
+  lastRunAt?: string | null;
+  nextRunAt?: string | null;
+}
+
+export interface SkillCatalogItem {
+  name: AgentSkill;
+  label: string;
+  description: string;
+  requiresReview: boolean;
+  createsDirectives: boolean;
+  requiredMcps: string[];
+  available: boolean;
+}
+
+export type RunTrigger = 'manual' | 'scheduled';
+export type RunStatus = 'running' | 'completed' | 'failed';
+
+export interface RunArtifact {
+  type: string;
+  ref: string;
+  label?: string | null;
+}
+
+export interface RunItem {
+  directiveId: string;
+  skill: string;
+  status: string;
+  summary?: string | null;
+  resultRef?: string | null;
+  artifacts: RunArtifact[];
+}
+
+export interface Run {
+  id: string;
+  epicId: string;
+  trigger: RunTrigger;
+  status: RunStatus;
+  startedAt: string;
+  finishedAt?: string | null;
+  items: RunItem[];
+  createdDirectiveIds: string[];
+  error?: string | null;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -29,6 +107,7 @@ export interface Directive {
   createdAt: string; // ISO date
   progressType: DirectiveProgressType;
   isComplete: boolean; // Only relevant for progressType="task"
+  agent?: AgentMeta | null; // Agent orchestrator metadata (absent = human-only directive)
 }
 
 export interface Epic {
@@ -45,6 +124,9 @@ export interface Epic {
     unit: string; // e.g., "races", "books", "projects"
   } | null;
   directives: Directive[];
+  resources?: EpicResources | null; // Agent tools/skills/context for this workstream
+  agentLog?: AgentLogEntry[]; // Append-only audit of agent activity
+  schedule?: EpicSchedule | null; // Recurring orchestrator schedule for this epic
 }
 
 export interface Log {

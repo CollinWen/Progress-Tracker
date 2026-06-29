@@ -44,7 +44,7 @@ jobs:
           --min-instances 0 \
           --max-instances 10 \
           --timeout 60 \
-          --set-env-vars ENVIRONMENT=production,ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS_PROD }}
+          --set-env-vars ENVIRONMENT=production,ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS_PROD }},ORCHESTRATOR_TOKEN=${{ secrets.ORCHESTRATOR_TOKEN_PROD }},ORCHESTRATOR_USER_ID=${{ secrets.ORCHESTRATOR_USER_ID_PROD }}
 
     - name: Get service URL
       id: get-url

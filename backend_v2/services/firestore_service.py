@@ -13,14 +13,17 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from uuid import uuid4
-from google.cloud.firestore_v1 import FieldFilter
+from google.cloud.firestore_v1 import FieldFilter, ArrayUnion
 
 from services.firebase_service import firebase_service
 from models.momentum import (
     Epic, Directive, Log, MomentumData, User,
     CreateEpicRequest, UpdateEpicRequest,
     CreateDirectiveRequest, UpdateDirectiveRequest,
-    CreateLogRequest
+    CreateLogRequest,
+    AgentMeta, AgentLogEntry, AgentStatus,
+    CreateAgentDirectiveRequest,
+    Run, UpdateRunRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,6 +31,20 @@ logger = logging.getLogger(__name__)
 # How many days of logs to fetch on initial load.
 # The momentum graph shows 52 weeks; 365 days covers that with room to spare.
 DEFAULT_LOG_DAYS = 365
+
+# How many days of check-in history to include when building agent context for an epic.
+AGENT_CONTEXT_LOG_DAYS = 90
+
+# Maps an agent skill to the closest human-facing activity type, so agent-created
+# directives still render correctly in the existing UI.
+SKILL_TO_ACTIVITY = {
+    "research": "research",
+    "code": "build",
+    "email": "arrange",
+    "schedule": "arrange",
+    "logistics": "plan",
+    "brainstorm": "plan",
+}
 
 
 class FirestoreService:
@@ -138,6 +155,10 @@ class FirestoreService:
             update_data['deadline'] = request.deadline
         if request.target is not None:
             update_data['target'] = request.target.model_dump() if request.target else None
+        if request.resources is not None:
+            update_data['resources'] = request.resources.model_dump(by_alias=True)
+        if request.schedule is not None:
+            update_data['schedule'] = request.schedule.model_dump(by_alias=True)
 
         if update_data:
             await asyncio.to_thread(epic_ref.update, update_data)
@@ -340,6 +361,248 @@ class FirestoreService:
         )
         await asyncio.to_thread(checkin_ref.delete)
         logger.info(f"Deleted check-in {checkin_id}")
+        return True
+
+    # ============================================================================
+    # Agent Orchestrator Operations
+    #
+    # These power the autonomous orchestrator (a separate client of Momentum that
+    # reaches Momentum via the MCP server). They never mutate human-facing fields.
+    # ============================================================================
+
+    async def get_active_epics(self, user_id: str) -> List[Epic]:
+        """
+        Epics the orchestrator should consider. Epics have no stored status field
+        (the UI computes a derived 'phase'), so for now this returns all epics.
+        Filtering (e.g. excluding paused workstreams) can be layered on later.
+        """
+        return await self.get_epics(user_id)
+
+    async def get_epic_context(self, user_id: str, epic_id: str) -> Optional[dict]:
+        """
+        Assemble everything an agent needs to act on a directive in this epic:
+        the epic (with directives, resources, and agent_log) plus recent human
+        check-in history. Returns a JSON-serializable dict, or None if not found.
+        """
+        epic = await self.get_epic(user_id, epic_id)
+        if epic is None:
+            return None
+
+        recent_logs = await self.get_checkins(user_id, epic_id, days=AGENT_CONTEXT_LOG_DAYS)
+        return {
+            "epic": epic.model_dump(by_alias=True),
+            "recent_logs": [log.model_dump(by_alias=True) for log in recent_logs],
+        }
+
+    async def get_pending_agent_directives(
+        self, user_id: str, epic_id: Optional[str] = None
+    ) -> List[dict]:
+        """
+        Return all directives whose agent status is 'queued', each paired with its
+        epic id. Filtered in Python since the agent map lives on directive docs
+        spread across per-epic subcollections.
+        """
+        epics = [await self.get_epic(user_id, epic_id)] if epic_id else await self.get_epics(user_id)
+
+        pending: List[dict] = []
+        for epic in epics:
+            if epic is None:
+                continue
+            for directive in epic.directives:
+                if directive.agent and directive.agent.status == "queued":
+                    pending.append({
+                        "epic_id": epic.id,
+                        "directive": directive.model_dump(by_alias=True),
+                    })
+        return pending
+
+    def _directive_ref(self, user_id: str, epic_id: str, directive_id: str):
+        return (
+            self.db.collection('users')
+            .document(user_id)
+            .collection('epics')
+            .document(epic_id)
+            .collection('directives')
+            .document(directive_id)
+        )
+
+    async def set_agent_status(
+        self,
+        user_id: str,
+        epic_id: str,
+        directive_id: str,
+        new_status: AgentStatus,
+        error: Optional[str] = None,
+    ) -> bool:
+        """Transition a directive's agent.status (dotted-path update, append-safe)."""
+        update_data = {
+            'agent.status': new_status,
+            'agent.updatedAt': datetime.now(timezone.utc).isoformat(),
+            'agent.error': error,  # None clears any prior error on success transitions
+        }
+        await asyncio.to_thread(
+            self._directive_ref(user_id, epic_id, directive_id).update, update_data
+        )
+        logger.info(f"Set agent status of directive {directive_id} -> {new_status}")
+        return True
+
+    async def write_agent_result(
+        self,
+        user_id: str,
+        epic_id: str,
+        directive_id: str,
+        result: object,
+        result_ref: Optional[str] = None,
+    ) -> bool:
+        """Write the agent's structured result payload back onto the directive."""
+        update_data = {
+            'agent.result': result,
+            'agent.resultRef': result_ref,
+            'agent.updatedAt': datetime.now(timezone.utc).isoformat(),
+        }
+        await asyncio.to_thread(
+            self._directive_ref(user_id, epic_id, directive_id).update, update_data
+        )
+        logger.info(f"Wrote agent result for directive {directive_id}")
+        return True
+
+    async def append_agent_log(self, user_id: str, epic_id: str, entry: AgentLogEntry) -> bool:
+        """
+        Append (never edit) an entry to the epic's agent_log. ArrayUnion creates the
+        field if it doesn't yet exist, preserving the append-only audit guarantee.
+        """
+        epic_ref = (
+            self.db.collection('users')
+            .document(user_id)
+            .collection('epics')
+            .document(epic_id)
+        )
+        await asyncio.to_thread(
+            epic_ref.update, {'agentLog': ArrayUnion([entry.model_dump(by_alias=True)])}
+        )
+        logger.info(f"Appended agent_log entry to epic {epic_id}")
+        return True
+
+    async def create_agent_directive(
+        self, user_id: str, epic_id: str, request: CreateAgentDirectiveRequest
+    ) -> Directive:
+        """
+        Create a new agent-actionable directive (used by the brainstorm skill and
+        any agent that surfaces follow-up work). The new directive carries an agent
+        block in 'queued' state and a human activity type mapped from its skill.
+        """
+        directive_id = str(uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        directive = Directive(
+            id=directive_id,
+            name=request.name,
+            type=SKILL_TO_ACTIVITY.get(request.skill, "plan"),
+            progress_type="task",
+            is_complete=False,
+            created_at=now,
+            agent=AgentMeta(
+                skill=request.skill,
+                brief=request.brief,
+                status="queued",
+                created_by=request.created_by,
+                updated_at=now,
+            ),
+        )
+        await asyncio.to_thread(
+            self._directive_ref(user_id, epic_id, directive_id).set,
+            directive.model_dump(by_alias=True),
+        )
+        logger.info(
+            f"Created agent directive {directive_id} (skill={request.skill}, "
+            f"by={request.created_by}) for epic {epic_id}"
+        )
+        return directive
+
+    async def count_agent_directives_created_today(self, user_id: str, epic_id: str) -> int:
+        """
+        Count directives created by the agent in this epic since UTC midnight.
+        Used to enforce the 'max 3 new agent-created directives per epic per day'
+        guardrail before the brainstorm skill writes new work.
+        """
+        epic = await self.get_epic(user_id, epic_id)
+        if epic is None:
+            return 0
+        today = datetime.now(timezone.utc).date().isoformat()
+        return sum(
+            1 for d in epic.directives
+            if d.agent and d.agent.created_by == "agent" and d.created_at.startswith(today)
+        )
+
+    # ============================================================================
+    # Run Operations (history of orchestrator executions)
+    # ============================================================================
+
+    def _runs_ref(self, user_id: str):
+        return self.db.collection('users').document(user_id).collection('runs')
+
+    async def create_run(self, user_id: str, epic_id: str, trigger: str = "manual") -> Run:
+        """Open a new run record in 'running' state."""
+        run_id = str(uuid4())
+        run = Run(
+            id=run_id,
+            epic_id=epic_id,
+            trigger=trigger,
+            status="running",
+            started_at=datetime.now(timezone.utc).isoformat(),
+        )
+        await asyncio.to_thread(
+            self._runs_ref(user_id).document(run_id).set, run.model_dump(by_alias=True)
+        )
+        logger.info(f"Opened run {run_id} for epic {epic_id} (trigger={trigger})")
+        return run
+
+    async def update_run(self, user_id: str, run_id: str, request: UpdateRunRequest) -> bool:
+        """Update / finalize a run record."""
+        update_data: dict = {}
+        if request.status is not None:
+            update_data['status'] = request.status
+        if request.finished_at is not None:
+            update_data['finishedAt'] = request.finished_at
+        if request.items is not None:
+            update_data['items'] = [i.model_dump(by_alias=True) for i in request.items]
+        if request.created_directive_ids is not None:
+            update_data['createdDirectiveIds'] = request.created_directive_ids
+        if request.error is not None:
+            update_data['error'] = request.error
+
+        if not update_data:
+            return False
+        await asyncio.to_thread(self._runs_ref(user_id).document(run_id).update, update_data)
+        logger.info(f"Updated run {run_id}")
+        return True
+
+    async def get_runs(
+        self, user_id: str, epic_id: Optional[str] = None, limit: int = 50
+    ) -> List[Run]:
+        """List runs for the user, newest first, optionally scoped to one epic."""
+        query = self._runs_ref(user_id)
+        if epic_id:
+            query = query.where(filter=FieldFilter('epicId', '==', epic_id))
+        docs = await asyncio.to_thread(lambda: list(query.stream()))
+        runs = [Run(**doc.to_dict()) for doc in docs]
+        runs.sort(key=lambda r: r.started_at, reverse=True)
+        return runs[:limit]
+
+    async def update_epic_schedule_run_times(
+        self, user_id: str, epic_id: str, last_run_at: Optional[str], next_run_at: Optional[str]
+    ) -> bool:
+        """Persist the scheduler's bookkeeping (last/next run) onto the epic schedule."""
+        update_data = {}
+        if last_run_at is not None:
+            update_data['schedule.lastRunAt'] = last_run_at
+        if next_run_at is not None:
+            update_data['schedule.nextRunAt'] = next_run_at
+        if not update_data:
+            return False
+        epic_ref = (
+            self.db.collection('users').document(user_id).collection('epics').document(epic_id)
+        )
+        await asyncio.to_thread(epic_ref.update, update_data)
         return True
 
     # ============================================================================
