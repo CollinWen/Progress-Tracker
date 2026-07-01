@@ -1,4 +1,4 @@
-import type { MomentumData, Epic, Directive, Log, User } from '../lib/types';
+import type { MomentumData, Epic, Directive, Log, User, SkillCatalogItem, Run, ApiKey, CreateApiKeyResponse } from '../lib/types';
 
 /**
  * Interface for all backend data operations.
@@ -38,4 +38,13 @@ export interface DataService {
   // Log operations
   addLog(log: Omit<Log, 'id'>): Promise<Log>;
   deleteLog(logId: string): Promise<void>;
+
+  // Agent operations
+  listSkills(): Promise<SkillCatalogItem[]>;
+  listRuns(options?: { epicId?: string; limit?: number }): Promise<Run[]>;
+
+  // API key management
+  listApiKeys(): Promise<ApiKey[]>;
+  createApiKey(name: string): Promise<CreateApiKeyResponse>;
+  revokeApiKey(keyId: string): Promise<void>;
 }

@@ -5,6 +5,7 @@ This FastAPI application provides the same REST API as v1 but uses Firebase/Fire
 for data storage instead of Google Drive.
 """
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
@@ -18,15 +19,23 @@ from models.momentum import (
     Epic,
     Directive,
     Log,
+    Run,
     CreateEpicRequest,
     UpdateEpicRequest,
     CreateDirectiveRequest,
     UpdateDirectiveRequest,
     CreateLogRequest,
+    ApiKey,
+    CreateApiKeyRequest,
+    CreateApiKeyResponse,
 )
 
 # Import services
 from services.firestore_service import firestore_service
+from skills_catalog import get_catalog
+
+# Agent MCP server (mounted at /mcp, deployed alongside this API)
+from mcp_server.server import mcp as momentum_mcp, authed_mcp_app
 
 # Import middleware
 from middleware.auth import get_current_user, AuthUser
@@ -38,11 +47,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# The mounted MCP app needs its session manager running for the life of the process.
+# Mounted sub-apps don't get their lifespan run automatically, so we wire it here.
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    async with momentum_mcp.session_manager.run():
+        yield
+
+
 # Create FastAPI app
 app = FastAPI(
     title="Momentum API v2",
     description="Firebase-based backend API for Momentum progress tracking app",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 # Configure CORS
@@ -54,6 +72,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount the agent MCP endpoint alongside the API, behind the API-key gate.
+app.mount("/mcp", authed_mcp_app)
 
 
 # ============================================================================
@@ -287,6 +308,76 @@ async def delete_directive(
 
     except Exception as e:
         logger.error(f"Error deleting directive: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ============================================================================
+# API Key Endpoints
+# ============================================================================
+
+
+@app.post("/api/keys", response_model=CreateApiKeyResponse, status_code=status.HTTP_201_CREATED)
+async def create_api_key(
+    request: CreateApiKeyRequest,
+    current_user: AuthUser = Depends(get_current_user),
+):
+    """Generate a new API key. The plaintext key is returned once and never stored."""
+    try:
+        return await firestore_service.create_api_key(current_user.uid, request.name)
+    except Exception as e:
+        logger.error(f"Error creating API key: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("/api/keys", response_model=List[ApiKey])
+async def list_api_keys(current_user: AuthUser = Depends(get_current_user)):
+    """List all API keys for the current user (key material is never returned)."""
+    try:
+        return await firestore_service.list_api_keys(current_user.uid)
+    except Exception as e:
+        logger.error(f"Error listing API keys: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.delete("/api/keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_api_key(
+    key_id: str,
+    current_user: AuthUser = Depends(get_current_user),
+):
+    """Revoke an API key by ID. Agents using this key will immediately lose access."""
+    try:
+        found = await firestore_service.revoke_api_key(current_user.uid, key_id)
+        if not found:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Key not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error revoking API key: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ============================================================================
+# Agent Endpoints (skills catalog + run history)
+# ============================================================================
+
+
+@app.get("/api/skills")
+async def list_skills(current_user: AuthUser = Depends(get_current_user)):
+    """The catalog of agent skills: what exists, what it does, and what's available."""
+    return get_catalog()
+
+
+@app.get("/api/runs", response_model=List[Run])
+async def list_runs(
+    epic_id: str = None,
+    limit: int = 50,
+    current_user: AuthUser = Depends(get_current_user),
+):
+    """List orchestrator runs for the user, newest first, optionally scoped to an epic."""
+    try:
+        return await firestore_service.get_runs(current_user.uid, epic_id, limit=limit)
+    except Exception as e:
+        logger.error(f"Error listing runs: {str(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

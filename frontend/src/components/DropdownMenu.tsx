@@ -15,7 +15,7 @@ interface DropdownMenuProps {
 export function DropdownMenu({ items }: DropdownMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { colors, theme } = useTheme();
+  const { colors } = useTheme();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

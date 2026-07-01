@@ -1,4 +1,4 @@
-import type { MomentumData, Epic, Directive, Log, User } from '../lib/types';
+import type { MomentumData, Epic, Directive, Log, User, SkillCatalogItem, Run, ApiKey, CreateApiKeyResponse } from '../lib/types';
 import type { DataService } from './DataService';
 
 interface AuthUser {
@@ -294,4 +294,12 @@ export class GoogleDriveService implements DataService {
     }
     return logs;
   }
+
+  async listSkills(): Promise<SkillCatalogItem[]> { return []; }
+  async listRuns(_options?: { epicId?: string; limit?: number }): Promise<Run[]> { return []; }
+  async listApiKeys(): Promise<ApiKey[]> { return []; }
+  async createApiKey(_name: string): Promise<CreateApiKeyResponse> {
+    throw new Error('API keys require a Firestore backend connection.');
+  }
+  async revokeApiKey(_keyId: string): Promise<void> {}
 }
