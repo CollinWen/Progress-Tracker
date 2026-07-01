@@ -37,8 +37,8 @@ export function AgentPanel({ epic }: { epic: Epic }) {
   const [enabled, setEnabled] = useState(initial?.enabled ?? false);
   const [cron, setCron] = useState(initial?.cron ?? '0 9 * * *');
   const [timezone, setTimezone] = useState(initial?.timezone ?? BROWSER_TZ);
-  const [nextRunAt, setNextRunAt] = useState(initial?.nextRunAt ?? null);
-  const [lastRunAt, setLastRunAt] = useState(initial?.lastRunAt ?? null);
+  const [nextRunAt] = useState(initial?.nextRunAt ?? null);
+  const [lastRunAt] = useState(initial?.lastRunAt ?? null);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 

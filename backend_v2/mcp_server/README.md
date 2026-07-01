@@ -34,7 +34,7 @@ directives per epic per day, enforced here at the contract layer.
 The MCP runs over **streamable HTTP**, mounted into the FastAPI app at `/mcp` and
 deployed **alongside the API** (`main.py` mounts it and wires the session-manager
 lifespan). It uses `firestore_service` server-side — Firebase Admin credentials stay
-on the backend and never reach the local orchestrator.
+on the backend and never reach the agent.
 
 > Path note: the inner app is built with `streamable_http_path="/"` and mounted at
 > `/mcp`, so the endpoint is exactly `<base-url>/mcp`. If a client gets a 404/307,
@@ -42,21 +42,54 @@ on the backend and never reach the local orchestrator.
 
 ## Authentication
 
-The `/mcp` endpoint is gated by a static bearer token (`_BearerAuthASGI`). Any request
-without the right token gets a 401 — there are no unauthenticated requests. On success
-the server operates as a single configured user:
+The `/mcp` endpoint is gated by **per-user API keys** — no backend configuration
+required. Users generate keys through the Momentum UI (profile menu → API keys) or
+directly via the REST API:
 
 ```bash
-ORCHESTRATOR_TOKEN=<strong-random>   # the local orchestrator must send this as Bearer
-ORCHESTRATOR_USER_ID=<firebase-uid>  # the user the orchestrator acts as
+# Create a key (requires a Firebase ID token)
+curl -X POST https://<api-url>/api/keys \
+  -H "Authorization: Bearer <firebase-id-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my agent"}'
+# → {"keyId": "...", "name": "my agent", "key": "mom_...", "createdAt": "..."}
 ```
 
-Generate the token once: `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
-The same value goes in the orchestrator's `MOMENTUM_MCP_TOKEN`. Multi-user later = a
-token→uid lookup plus per-request identity.
+The plaintext key is returned **once** and never stored. Pass it to your agent as a
+standard Bearer token:
 
-Hardening path: deploy the MCP as its own Cloud Run service with
-`--no-allow-unauthenticated` + IAM so unauthenticated calls are rejected at the edge.
+```
+Authorization: Bearer mom_<key>
+MCP endpoint:  https://<api-url>/mcp
+```
+
+Each key resolves to the owning user's Firebase UID via a SHA-256 hash lookup in the
+`api_keys` Firestore collection. All MCP tools then operate as that user — fully
+multi-tenant, no hardcoded identity.
+
+### Key management endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/keys` | Create a key (returns plaintext once) |
+| `GET` | `/api/keys` | List keys for the current user |
+| `DELETE` | `/api/keys/{key_id}` | Revoke a key immediately |
+
+All three require a Firebase ID token (`Authorization: Bearer <firebase-id-token>`).
+
+### Firestore layout
+
+```
+/api_keys/{sha256(key)}
+  userId:     string   # owning Firebase UID
+  keyId:      string   # stable UUID for UI management
+  name:       string
+  createdAt:  string   # ISO-8601
+  lastUsedAt: string?  # updated on every successful auth
+```
+
+The document ID is the SHA-256 hash of the key, giving O(1) auth lookups without
+a full collection scan. `lastUsedAt` is updated on every successful request.
 
 ## Why epic_id is in every signature
 

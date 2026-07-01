@@ -1,4 +1,4 @@
-import type { MomentumData, Epic, Directive, Log, User, SkillCatalogItem, Run } from '../lib/types';
+import type { MomentumData, Epic, Directive, Log, User, SkillCatalogItem, Run, ApiKey, CreateApiKeyResponse } from '../lib/types';
 import type { DataService } from './DataService';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import {
@@ -337,5 +337,20 @@ export class FirestoreService implements DataService {
     if (options?.limit !== undefined) params.set('limit', String(options.limit));
     const query = params.toString();
     return this.apiRequest<Run[]>(`/api/runs${query ? '?' + query : ''}`);
+  }
+
+  async listApiKeys(): Promise<ApiKey[]> {
+    return this.apiRequest<ApiKey[]>('/api/keys');
+  }
+
+  async createApiKey(name: string): Promise<CreateApiKeyResponse> {
+    return this.apiRequest<CreateApiKeyResponse>('/api/keys', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  async revokeApiKey(keyId: string): Promise<void> {
+    await this.apiRequest(`/api/keys/${keyId}`, { method: 'DELETE' });
   }
 }

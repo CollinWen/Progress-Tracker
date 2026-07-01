@@ -1,4 +1,4 @@
-import type { MomentumData, Epic, Directive, Log, User, SkillCatalogItem, Run } from '../lib/types';
+import type { MomentumData, Epic, Directive, Log, User, SkillCatalogItem, Run, ApiKey, CreateApiKeyResponse } from '../lib/types';
 import { generateSeedData } from '../lib/computeDerivedData';
 import type { DataService } from './DataService';
 
@@ -207,6 +207,12 @@ export class LocalStorageService implements DataService {
   async listRuns(_options?: { epicId?: string; limit?: number }): Promise<Run[]> {
     return [];
   }
+
+  async listApiKeys(): Promise<ApiKey[]> { return []; }
+  async createApiKey(_name: string): Promise<CreateApiKeyResponse> {
+    throw new Error('API keys require a backend connection.');
+  }
+  async revokeApiKey(_keyId: string): Promise<void> {}
 
   async loadEpics(): Promise<Epic[]> {
     const data = await this.loadData();

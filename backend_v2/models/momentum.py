@@ -363,3 +363,34 @@ class UpdateRunRequest(BaseModel):
 
     class Config:
         populate_by_name = True
+
+
+# ============================================================================
+# API Key models
+# ============================================================================
+
+
+class ApiKey(BaseModel):
+    """A user-generated API key for authenticating agent access to the MCP server."""
+    key_id: str = Field(alias="keyId")
+    name: str
+    created_at: str = Field(alias="createdAt")
+    last_used_at: Optional[str] = Field(default=None, alias="lastUsedAt")
+
+    class Config:
+        populate_by_name = True
+
+
+class CreateApiKeyRequest(BaseModel):
+    name: str
+
+
+class CreateApiKeyResponse(BaseModel):
+    """Returned once on key creation — the plaintext key is never stored and cannot be retrieved again."""
+    key_id: str = Field(alias="keyId")
+    name: str
+    key: str
+    created_at: str = Field(alias="createdAt")
+
+    class Config:
+        populate_by_name = True

@@ -19,14 +19,16 @@ from models.momentum import (
     Epic,
     Directive,
     Log,
+    Run,
     CreateEpicRequest,
     UpdateEpicRequest,
     CreateDirectiveRequest,
     UpdateDirectiveRequest,
     CreateLogRequest,
+    ApiKey,
+    CreateApiKeyRequest,
+    CreateApiKeyResponse,
 )
-
-from models.momentum import Run
 
 # Import services
 from services.firestore_service import firestore_service
@@ -71,8 +73,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount the agent MCP endpoint alongside the API, behind its bearer-token gate.
-# The local orchestrator connects here at <base-url>/mcp.
+# Mount the agent MCP endpoint alongside the API, behind the API-key gate.
 app.mount("/mcp", authed_mcp_app)
 
 
@@ -307,6 +308,51 @@ async def delete_directive(
 
     except Exception as e:
         logger.error(f"Error deleting directive: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ============================================================================
+# API Key Endpoints
+# ============================================================================
+
+
+@app.post("/api/keys", response_model=CreateApiKeyResponse, status_code=status.HTTP_201_CREATED)
+async def create_api_key(
+    request: CreateApiKeyRequest,
+    current_user: AuthUser = Depends(get_current_user),
+):
+    """Generate a new API key. The plaintext key is returned once and never stored."""
+    try:
+        return await firestore_service.create_api_key(current_user.uid, request.name)
+    except Exception as e:
+        logger.error(f"Error creating API key: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.get("/api/keys", response_model=List[ApiKey])
+async def list_api_keys(current_user: AuthUser = Depends(get_current_user)):
+    """List all API keys for the current user (key material is never returned)."""
+    try:
+        return await firestore_service.list_api_keys(current_user.uid)
+    except Exception as e:
+        logger.error(f"Error listing API keys: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@app.delete("/api/keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_api_key(
+    key_id: str,
+    current_user: AuthUser = Depends(get_current_user),
+):
+    """Revoke an API key by ID. Agents using this key will immediately lose access."""
+    try:
+        found = await firestore_service.revoke_api_key(current_user.uid, key_id)
+        if not found:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Key not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error revoking API key: {str(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

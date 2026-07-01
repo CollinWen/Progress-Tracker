@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Moon, Sun, Download, LogOut } from 'lucide-react';
+import { Moon, Sun, Download, LogOut, KeyRound } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { User, MomentumData } from '../lib/types';
 import { countActiveDaysThisMonth } from '../lib/computeDerivedData';
 import { useTheme } from '../contexts/ThemeContext';
@@ -24,6 +25,7 @@ export function ProfileMenu({ user, data, onSignOut }: ProfileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { theme, toggleTheme, colors } = useTheme();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -140,6 +142,12 @@ export function ProfileMenu({ user, data, onSignOut }: ProfileMenuProps) {
               icon={<Download size={13} />}
               label="Export data"
               sublabel="Download your logs as JSON"
+            />
+            <MenuButton
+              onClick={() => { setIsOpen(false); navigate('/keys'); }}
+              icon={<KeyRound size={13} />}
+              label="API keys"
+              sublabel="Manage agent access keys"
             />
             <div style={{ height: '1px', backgroundColor: colors.borderLight, margin: '4px 6px' }} />
             <MenuButton

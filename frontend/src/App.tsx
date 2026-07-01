@@ -33,6 +33,7 @@ import { DirectiveModal } from './components/DirectiveModal';
 import { EpicDetailPage } from './components/EpicDetailPage';
 import { EpicsListPage } from './components/EpicsListPage';
 import { SkillsCatalog } from './components/SkillsCatalog';
+import { ApiKeysPage } from './components/ApiKeysPage';
 import { DraggableEpicList } from './components/DraggableEpicList';
 import { useTheme } from './contexts/ThemeContext';
 import type { MomentumData, Epic, Directive, Log, User } from './lib/types';
@@ -409,6 +410,10 @@ function App() {
         <Route
           path="/skills"
           element={!isAuthenticated ? <Navigate to="/" /> : <SkillsCatalog />}
+        />
+        <Route
+          path="/keys"
+          element={!isAuthenticated ? <Navigate to="/" /> : <ApiKeysPage />}
         />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

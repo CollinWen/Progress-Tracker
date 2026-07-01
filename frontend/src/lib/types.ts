@@ -77,6 +77,20 @@ export interface RunItem {
   artifacts: RunArtifact[];
 }
 
+export interface ApiKey {
+  keyId: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt?: string | null;
+}
+
+export interface CreateApiKeyResponse {
+  keyId: string;
+  name: string;
+  key: string;
+  createdAt: string;
+}
+
 export interface Run {
   id: string;
   epicId: string;

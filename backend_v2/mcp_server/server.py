@@ -1,6 +1,6 @@
 """
 Momentum MCP server — the contract between Momentum (data + UI, source of truth)
-and its agent clients (the autonomous orchestrator, or an interactive Claude session).
+and its agent clients.
 
 It exposes a small set of verbs over MCP (streamable-HTTP transport) and is a thin
 wrapper over the existing ``firestore_service`` — so the MCP and the REST API share one
@@ -9,15 +9,15 @@ deployed alongside the API.
 
 Auth model
 ----------
-The endpoint is gated by a static bearer token (``_BearerAuthASGI``); any request
-without the right token gets a 401. On success it operates as a single configured user:
+Requests are authenticated via user-generated API keys. A key is prefixed ``mom_``
+and is passed as a standard Bearer token::
 
-    ORCHESTRATOR_TOKEN     the shared secret the local orchestrator sends
-    ORCHESTRATOR_USER_ID   the Firebase UID the orchestrator acts as
+    Authorization: Bearer mom_<key>
 
-Firebase Admin credentials live only on the deployed backend (never on the local box).
-The local orchestrator holds only ORCHESTRATOR_TOKEN. See main.py for the mount + the
-session-manager lifespan wiring.
+The key is SHA-256 hashed and looked up in the ``api_keys`` Firestore collection to
+resolve the owning user ID. The resolved user ID is stored in a per-request ContextVar
+so all tool handlers operate on the correct user without any global state. Users create
+and revoke keys through the ``POST/GET/DELETE /api/keys`` REST endpoints.
 
 Verbs
 -----
@@ -29,21 +29,19 @@ Verbs
     append_agent_log(epic_id, directive_id, skill, summary, result_ref?)
     create_directive(epic_id, skill, name, brief, created_by?)
 """
-import hmac
+import contextvars
 import os
 import sys
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 # Allow `python mcp_server/server.py` as well as `python -m mcp_server.server`
-# by ensuring backend_v2 (this file's parent's parent) is importable.
 _BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _BACKEND_DIR not in sys.path:
     sys.path.insert(0, _BACKEND_DIR)
 
 from mcp.server.fastmcp import FastMCP
 
-from config import settings
 from services.firestore_service import firestore_service
 from models.momentum import (
     AgentLogEntry,
@@ -53,26 +51,19 @@ from models.momentum import (
 )
 from skills_catalog import get_catalog
 
-# Max new agent-created directives per epic per day. Enforced at the contract layer so
-# the guardrail holds no matter which client/skill calls create_directive.
 MAX_AGENT_DIRECTIVES_PER_DAY = 3
 
-# Streamable-HTTP, stateless (Cloud Run instances aren't sticky). The endpoint is
-# mounted into the FastAPI app at /mcp; streamable_http_path="/" so the mounted path
-# is exactly /mcp (not /mcp/mcp).
 mcp = FastMCP("momentum", stateless_http=True, streamable_http_path="/")
+
+# Per-request user ID — set by _ApiKeyAuthASGI before the MCP handler runs.
+_request_user_id: contextvars.ContextVar[str] = contextvars.ContextVar("request_user_id")
 
 
 def _user_id() -> str:
-    """
-    The user the orchestrator operates as. Identity is established by the bearer-token
-    gate in front of /mcp (see auth_middleware); this maps to a single configured user.
-    Multi-user later = a token->uid lookup + per-request context.
-    """
-    user_id = settings.orchestrator_user_id
-    if not user_id:
-        raise RuntimeError("ORCHESTRATOR_USER_ID is not set on the backend.")
-    return user_id
+    try:
+        return _request_user_id.get()
+    except LookupError:
+        raise RuntimeError("No authenticated user in MCP request context.")
 
 
 @mcp.tool()
@@ -252,15 +243,18 @@ async def set_schedule_run_times(
 mcp_app = mcp.streamable_http_app()
 
 
-class _BearerAuthASGI:
+class _ApiKeyAuthASGI:
     """
-    Gate every request to the MCP endpoint behind a static bearer token. Missing or
-    wrong token -> 401, so there are no unauthenticated requests. Identity is constant
-    (the single configured user); see _user_id(). Non-HTTP scopes pass through.
+    Gate every request to the MCP endpoint behind a user API key.
+
+    The Bearer token is looked up in the api_keys Firestore collection (by SHA-256 hash).
+    On success the resolved user ID is stored in _request_user_id so tool handlers can
+    call _user_id() without any global state. On failure a 401 JSON response is returned.
+    Non-HTTP scopes (websocket, lifespan) pass through unchanged.
     """
-    def __init__(self, app, token: str):
+
+    def __init__(self, app):
         self.app = app
-        self.token = token
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -268,19 +262,32 @@ class _BearerAuthASGI:
             return
 
         headers = dict(scope.get("headers") or [])
-        provided = headers.get(b"authorization", b"").decode()
-        expected = f"Bearer {self.token}" if self.token else ""
+        auth_header = headers.get(b"authorization", b"").decode()
 
-        if not self.token or not hmac.compare_digest(provided, expected):
-            await send({
-                "type": "http.response.start",
-                "status": 401,
-                "headers": [(b"content-type", b"application/json")],
-            })
-            await send({"type": "http.response.body", "body": b'{"error":"unauthorized"}'})
+        token = None
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+
+        if not token:
+            await self._reject(send)
             return
 
+        user_id = await firestore_service.lookup_api_key(token)
+        if not user_id:
+            await self._reject(send)
+            return
+
+        _request_user_id.set(user_id)
         await self.app(scope, receive, send)
 
+    @staticmethod
+    async def _reject(send):
+        await send({
+            "type": "http.response.start",
+            "status": 401,
+            "headers": [(b"content-type", b"application/json")],
+        })
+        await send({"type": "http.response.body", "body": b'{"error":"unauthorized"}'})
 
-authed_mcp_app = _BearerAuthASGI(mcp_app, settings.orchestrator_token)
+
+authed_mcp_app = _ApiKeyAuthASGI(mcp_app)

@@ -15,6 +15,9 @@ from typing import List, Optional
 from uuid import uuid4
 from google.cloud.firestore_v1 import FieldFilter, ArrayUnion
 
+import hashlib
+import secrets
+
 from services.firebase_service import firebase_service
 from models.momentum import (
     Epic, Directive, Log, MomentumData, User,
@@ -24,6 +27,7 @@ from models.momentum import (
     AgentMeta, AgentLogEntry, AgentStatus,
     CreateAgentDirectiveRequest,
     Run, UpdateRunRequest,
+    ApiKey, CreateApiKeyResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -603,6 +607,80 @@ class FirestoreService:
             self.db.collection('users').document(user_id).collection('epics').document(epic_id)
         )
         await asyncio.to_thread(epic_ref.update, update_data)
+        return True
+
+    # ============================================================================
+    # API Key Operations
+    # ============================================================================
+
+    def _key_hash(self, key: str) -> str:
+        return hashlib.sha256(key.encode()).hexdigest()
+
+    async def create_api_key(self, user_id: str, name: str) -> CreateApiKeyResponse:
+        """Generate a new API key, store its hash, return the plaintext key once."""
+        key = "mom_" + secrets.token_urlsafe(32)
+        key_hash = self._key_hash(key)
+        key_id = str(uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+
+        doc = {
+            "keyId": key_id,
+            "userId": user_id,
+            "name": name,
+            "createdAt": now,
+            "lastUsedAt": None,
+        }
+        await asyncio.to_thread(
+            self.db.collection("api_keys").document(key_hash).set, doc
+        )
+        logger.info(f"Created API key {key_id} for user {user_id}")
+        return CreateApiKeyResponse(
+            key_id=key_id, name=name, key=key, created_at=now
+        )
+
+    async def lookup_api_key(self, key: str) -> Optional[str]:
+        """Return the user_id for a valid API key, or None if not found. Updates lastUsedAt."""
+        key_hash = self._key_hash(key)
+        doc_ref = self.db.collection("api_keys").document(key_hash)
+        doc = await asyncio.to_thread(doc_ref.get)
+        if not doc.exists:
+            return None
+        data = doc.to_dict()
+        now = datetime.now(timezone.utc).isoformat()
+        await asyncio.to_thread(doc_ref.update, {"lastUsedAt": now})
+        return data.get("userId")
+
+    async def list_api_keys(self, user_id: str) -> List[ApiKey]:
+        """List all API keys for a user (key hash and plaintext are never returned)."""
+        query = self.db.collection("api_keys").where(
+            filter=FieldFilter("userId", "==", user_id)
+        )
+        docs = await asyncio.to_thread(lambda: list(query.stream()))
+        keys = []
+        for doc in docs:
+            data = doc.to_dict()
+            keys.append(ApiKey(
+                key_id=data["keyId"],
+                name=data["name"],
+                created_at=data["createdAt"],
+                last_used_at=data.get("lastUsedAt"),
+            ))
+        keys.sort(key=lambda k: k.created_at, reverse=True)
+        return keys
+
+    async def revoke_api_key(self, user_id: str, key_id: str) -> bool:
+        """Delete an API key by key_id, ensuring it belongs to the requesting user."""
+        query = (
+            self.db.collection("api_keys")
+            .where(filter=FieldFilter("userId", "==", user_id))
+            .where(filter=FieldFilter("keyId", "==", key_id))
+            .limit(1)
+        )
+        docs = await asyncio.to_thread(lambda: list(query.stream()))
+        if not docs:
+            return False
+        await asyncio.to_thread(docs[0].reference.delete)
+        logger.info(f"Revoked API key {key_id} for user {user_id}")
         return True
 
     # ============================================================================
