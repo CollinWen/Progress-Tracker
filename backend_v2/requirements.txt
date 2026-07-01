@@ -1,22 +1,22 @@
 # FastAPI framework
 fastapi==0.109.0
-uvicorn[standard]==0.27.0
+uvicorn[standard]>=0.27.0
 
 # Firebase Admin SDK
 firebase-admin==6.5.0
 
-# Pydantic for data validation
-pydantic==2.5.3
-pydantic-settings==2.1.0
+# Pydantic for data validation (lower bounds driven by mcp>=1.2.0 requirements)
+pydantic>=2.11.0
+pydantic-settings>=2.5.2
 
 # Google Cloud dependencies (for Firestore)
 google-cloud-firestore==2.14.0
 
 # CORS middleware
-python-multipart==0.0.6
+python-multipart>=0.0.6
 
 # Python 3.11+ compatibility
-typing-extensions==4.9.0
+typing-extensions>=4.12.2
 
 # MCP server (agent-facing contract) — see mcp_server/
 mcp>=1.2.0
